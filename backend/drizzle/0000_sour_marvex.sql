@@ -1,6 +1,5 @@
 -- Current sql file was generated after introspecting the database
 -- If you want to run this migration please uncomment this code before executing migrations
-/*
 CREATE TABLE "dim_users" (
 	"user_id" serial PRIMARY KEY NOT NULL,
 	"username" varchar(50) NOT NULL,
@@ -12,4 +11,3 @@ CREATE TABLE "dim_users" (
 	"gender" varchar(6) NOT NULL
 );
 
-*/
