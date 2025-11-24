@@ -4,6 +4,8 @@ import { DatabaseAsyncProvider } from 'src/database/database.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from 'db-schema/schema';
 import { eq, sql, ilike } from 'drizzle-orm';
+import { CreateUserDto } from './dto/create-user.dto';
+import { BadRequestException } from '@nestjs/common';
 
 @Injectable()
 export class UsersService {
@@ -40,6 +42,23 @@ export class UsersService {
         ),
       )
       .limit(limit);
+
+    return res;
+  }
+
+  async createUser(dto: CreateUserDto) {
+    const existing = await this.db
+      .select()
+      .from(schema.dimUsers)
+      .where(eq(schema.dimUsers.username, dto.username));
+
+    if (existing.length > 0) {
+      throw new BadRequestException('Username already exists');
+    }
+    const [res] = await this.db
+      .insert(schema.dimUsers)
+      .values({ ...dto })
+      .returning();
 
     return res;
   }

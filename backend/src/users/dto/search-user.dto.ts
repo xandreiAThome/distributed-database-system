@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 
 export class SearchUserDto {
@@ -6,14 +6,13 @@ export class SearchUserDto {
     description: 'Limit the number of users returned',
     example: 10,
     minimum: 1,
-    required: false,
   })
   @IsOptional()
   @IsInt()
   @Min(1)
   limit?: number;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Name of the user to search for',
     example: 'John',
     required: true,
