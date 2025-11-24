@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { User } from 'db-schema/user';
 import { DatabaseAsyncProvider } from 'src/database/database.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -6,6 +6,7 @@ import * as schema from 'db-schema/schema';
 import { eq, sql, ilike } from 'drizzle-orm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { BadRequestException } from '@nestjs/common';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -26,6 +27,10 @@ export class UsersService {
       .select()
       .from(schema.dimUsers)
       .where(eq(schema.dimUsers.userId, id));
+
+    if (!res.length) {
+      throw new NotFoundException(`User with id ${id} not found`);
+    }
 
     return res;
   }
@@ -61,5 +66,32 @@ export class UsersService {
       .returning();
 
     return res;
+  }
+
+  async deleteUser(id: number) {
+    const res = await this.db
+      .delete(schema.dimUsers)
+      .where(eq(schema.dimUsers.userId, id))
+      .returning();
+
+    if (!res.length) {
+      throw new NotFoundException('User not found');
+    }
+
+    return { message: `User with ID ${id} deleted successfully` };
+  }
+
+  async updateUser(id: number, dto: UpdateUserDto) {
+    const res = await this.db
+      .update(schema.dimUsers)
+      .set({ ...dto })
+      .where(eq(schema.dimUsers.userId, id))
+      .returning();
+
+    if (!res.length) {
+      throw new NotFoundException(`User with id ${id} not found`);
+    }
+
+    return res[0];
   }
 }

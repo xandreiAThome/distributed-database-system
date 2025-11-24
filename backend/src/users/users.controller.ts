@@ -1,4 +1,6 @@
 import {
+  Patch,
+  Delete,
   Body,
   Post,
   Controller,
@@ -13,6 +15,7 @@ import { UserDto } from './dto/resp-user.dto';
 import { GetAllUsersDto } from './dto/get-all-users.dto';
 import { SearchUserDto } from './dto/search-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @ApiTags('users')
 @Controller('users')
@@ -105,5 +108,55 @@ export class UsersController {
   })
   getUserById(@Param('id', ParseIntPipe) id: number) {
     return this.userService.getUserById(id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Delete user by ID',
+    description: 'Deletes a user by their unique ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User successfully deleted',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+  })
+  deleteUser(@Param('id', ParseIntPipe) id: number) {
+    return this.userService.deleteUser(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Update user by ID',
+    description: 'Updates user fields by their unique ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User successfully updated',
+    type: UserDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request body or parameters',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+  })
+  updateUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.userService.updateUser(id, updateUserDto);
   }
 }
