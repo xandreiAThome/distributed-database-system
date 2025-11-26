@@ -131,17 +131,6 @@ export class DistributedSyncService {
 
       for (let i = 0; i < users.length; i += CHUNK_SIZE) {
         const chunk = users.slice(i, Math.min(i + CHUNK_SIZE, users.length));
-        // Convert camelCase to snake_case for network transmission
-        const snakeCaseChunk = chunk.map((user) => ({
-          user_id: user.userId,
-          username: user.username,
-          first_name: user.firstName,
-          last_name: user.lastName,
-          city: user.city,
-          country: user.country,
-          zipcode: user.zipcode,
-          gender: user.gender,
-        }));
 
         this.logger.log(
           `Sending chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(users.length / CHUNK_SIZE)} with ${chunk.length} users to ${node.id}`,
@@ -150,7 +139,7 @@ export class DistributedSyncService {
         const response = await fetch(`${node.url}/partition/bulk-insert`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ users: snakeCaseChunk }),
+          body: JSON.stringify({ users: chunk }),
         });
 
         if (!response.ok) {

@@ -3,34 +3,53 @@ import {
   ValidateNested,
   IsNumber,
   IsString,
+  IsNotEmpty,
+  Min,
 } from '@nestjs/class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
-// Plain user object that matches database schema (snake_case)
+// User object with camelCase (matches database schema property names)
 export class PlainUserDto {
-  @ApiProperty()
-  user_id: number;
+  @ApiProperty({ description: 'User ID' })
+  @IsNumber()
+  @IsNotEmpty()
+  @Min(1)
+  userId: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Username' })
+  @IsString()
+  @IsNotEmpty()
   username: string;
 
-  @ApiProperty()
-  first_name: string;
+  @ApiProperty({ description: 'First name' })
+  @IsString()
+  @IsNotEmpty()
+  firstName: string;
 
-  @ApiProperty()
-  last_name: string;
+  @ApiProperty({ description: 'Last name' })
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'City' })
+  @IsString()
+  @IsNotEmpty()
   city: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Country' })
+  @IsString()
+  @IsNotEmpty()
   country: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Zipcode' })
+  @IsString()
+  @IsNotEmpty()
   zipcode: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Gender' })
+  @IsString()
+  @IsNotEmpty()
   gender: string;
 }
 
@@ -40,6 +59,7 @@ export class BulkInsertUsersDto {
     description: 'Array of users to bulk insert',
   })
   @IsArray()
+  @IsNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => PlainUserDto)
   users: PlainUserDto[];
@@ -49,5 +69,8 @@ export class BulkInsertResponseDto {
   @ApiProperty({
     description: 'Number of users inserted',
   })
+  @IsNumber()
+  @IsNotEmpty()
+  @Min(0)
   count: number;
 }

@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Logger, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { DistributedSyncService, SyncResult } from './distributed-sync.service';
-import { BulkInsertResponseDto } from './dto/partition.dto';
+import { BulkInsertResponseDto, BulkInsertUsersDto } from './dto/partition.dto';
 import { SyncResultDto } from './dto/sync-result.dto';
 import { UsersService } from 'src/users/users.service';
 
@@ -48,12 +48,10 @@ export class PartitionController {
     type: BulkInsertResponseDto,
   })
   async bulkInsert(
-    @Body() rawBody: { users?: Array<Record<string, string | number>> },
+    @Body() dto: BulkInsertUsersDto,
   ): Promise<BulkInsertResponseDto> {
-    // Bypass validation for this endpoint to allow snake_case from network
-    const users = (rawBody.users as Record<string, string | number>[]) || [];
-    this.logger.log(`Bulk insert received: ${users.length} users`);
-    const count = await this.usersService.bulkInsertUsers(users);
+    this.logger.log(`Bulk insert received: ${dto.users.length} users`);
+    const count = await this.usersService.bulkInsertUsers(dto.users);
     this.logger.log(`Successfully inserted ${count} users into local database`);
     return { count };
   }

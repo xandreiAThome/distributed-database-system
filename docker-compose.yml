@@ -21,6 +21,12 @@ services:
     networks:
       - distributed-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${MASTER_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # Slave Node 1
   backend-slave-1:
@@ -43,6 +49,12 @@ services:
     networks:
       - distributed-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${SLAVE_1_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # Slave Node 2
   backend-slave-2:
@@ -65,6 +77,12 @@ services:
     networks:
       - distributed-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${SLAVE_2_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 networks:
   distributed-network:
