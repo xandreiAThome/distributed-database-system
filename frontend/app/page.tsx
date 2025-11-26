@@ -1,10 +1,25 @@
 'use client'
 import { Input } from "@/components/ui/input";
+import axios from "axios";
 import { Pencil, Trash } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function Home() {
   const [showMenu, setShowMenu] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
+
+  useEffect(() => {
+    async function getUserInfo() {
+      const username = sessionStorage.getItem("username");
+      if (!username) {
+        window.location.href = "/login";
+      }
+
+      const response = await axios.get("/users/:id", { params: { id: username } });
+      setUserInfo(response.data);
+    }
+    getUserInfo();
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
