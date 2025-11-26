@@ -24,35 +24,33 @@ export class PartitionService {
 
   /**
    * Calculate hash using simple modulo algorithm
-   * @param key - The value to hash
-   * @param nodeCount - Number of nodes to distribute across
-   * @returns Partition index (0 to nodeCount-1)
+   * Only partitions across slave nodes (master keeps everything)
+   * @param key - The value to hash (userId)
+   * @param slaveNodeCount - Number of slave nodes to distribute across
+   * @returns Partition index (0 to slaveNodeCount-1)
    */
-  private hashModulo(key: string | number, nodeCount: number): number {
-    // Convert to string and get char codes sum
-    const keyStr = String(key);
-    let hash = 0;
-
-    for (let i = 0; i < keyStr.length; i++) {
-      hash += keyStr.charCodeAt(i);
-    }
-
-    return Math.abs(hash) % nodeCount;
+  private hashModulo(key: string | number, slaveNodeCount: number): number {
+    // Direct modulo on the numeric value for consistent distribution
+    // Only distributes across slave nodes, not master
+    const numericKey = typeof key === 'string' ? parseInt(key, 10) : key;
+    return Math.abs(numericKey) % slaveNodeCount;
   }
 
   /**
-   * Get the partition index for a given key
+   * Get the partition index for a given key (only across slaves)
    */
   getPartitionIndex(key: string | number): number {
-    return this.hashModulo(key, this.config.nodes.length);
+    const slaveNodes = this.getSlaveNodes();
+    return this.hashModulo(key, slaveNodes.length);
   }
 
   /**
-   * Get the target node for a given key
+   * Get the target node for a given key (only returns slave nodes)
    */
   getTargetNode(key: string | number): PartitionNode {
+    const slaveNodes = this.getSlaveNodes();
     const index = this.getPartitionIndex(key);
-    return this.config.nodes[index];
+    return slaveNodes[index];
   }
 
   /**
@@ -98,9 +96,7 @@ export class PartitionService {
   /**
    * Get statistics about partitioned data
    */
-  getPartitionStats(
-    partitions: Map<string, unknown[]>,
-  ): Record<string, number> {
+  getPartitionStats<T>(partitions: Map<string, T[]>): Record<string, number> {
     const stats: Record<string, number> = {};
 
     partitions.forEach((data, nodeId) => {
