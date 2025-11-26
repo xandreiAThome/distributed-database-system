@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  # Master Node
+  backend-master:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend-master
+    environment:
+      DATABASE_URL: ${MASTER_DB_URL}
+      NODE_ROLE: master
+      PORT: ${MASTER_PORT}
+      MASTER_URL: ${MASTER_URL}
+      SLAVE_1_URL: ${SLAVE_1_URL}
+      SLAVE_2_URL: ${SLAVE_2_URL}
+      SLAVE_1_ID: ${SLAVE_1_ID}
+      SLAVE_2_ID: ${SLAVE_2_ID}
+    ports:
+      - "${MASTER_PORT}:${MASTER_PORT}"
+    networks:
+      - distributed-network
+    restart: unless-stopped
+
+  # Slave Node 1
+  backend-slave-1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend-slave-1
+    environment:
+      DATABASE_URL: ${SLAVE_1_DB_URL}
+      NODE_ROLE: slave
+      SLAVE_ID: ${SLAVE_1_ID}
+      PORT: ${SLAVE_1_PORT}
+      MASTER_URL: ${MASTER_URL}
+      SLAVE_1_URL: ${SLAVE_1_URL}
+      SLAVE_2_URL: ${SLAVE_2_URL}
+      SLAVE_1_ID: ${SLAVE_1_ID}
+      SLAVE_2_ID: ${SLAVE_2_ID}
+    ports:
+      - "${SLAVE_1_PORT}:${SLAVE_1_PORT}"
+    networks:
+      - distributed-network
+    restart: unless-stopped
+
+  # Slave Node 2
+  backend-slave-2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend-slave-2
+    environment:
+      DATABASE_URL: ${SLAVE_2_DB_URL}
+      NODE_ROLE: slave
+      SLAVE_ID: ${SLAVE_2_ID}
+      PORT: ${SLAVE_2_PORT}
+      MASTER_URL: ${MASTER_URL}
+      SLAVE_1_URL: ${SLAVE_1_URL}
+      SLAVE_2_URL: ${SLAVE_2_URL}
+      SLAVE_1_ID: ${SLAVE_1_ID}
+      SLAVE_2_ID: ${SLAVE_2_ID}
+    ports:
+      - "${SLAVE_2_PORT}:${SLAVE_2_PORT}"
+    networks:
+      - distributed-network
+    restart: unless-stopped
+
+networks:
+  distributed-network:
+    driver: bridge

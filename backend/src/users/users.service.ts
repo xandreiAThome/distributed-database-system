@@ -94,4 +94,32 @@ export class UsersService {
 
     return res[0];
   }
+
+  async bulkInsertUsers(
+    users: Record<string, string | number>[],
+  ): Promise<number> {
+    if (users.length === 0) {
+      return 0;
+    }
+
+    // Convert snake_case from network to camelCase for Drizzle ORM
+    const convertedUsers = users.map((user) => ({
+      userId: user.user_id as number,
+      username: user.username as string,
+      firstName: user.first_name as string,
+      lastName: user.last_name as string,
+      city: user.city as string,
+      country: user.country as string,
+      zipcode: user.zipcode as string,
+      gender: user.gender as string,
+    }));
+
+    // Insert users and get the count of inserted rows
+    const inserted = await this.db
+      .insert(schema.dimUsers)
+      .values(convertedUsers)
+      .returning();
+
+    return inserted.length;
+  }
 }
