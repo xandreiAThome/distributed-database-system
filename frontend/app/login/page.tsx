@@ -10,7 +10,7 @@ export default function Home() {
     const [search, setSearch] = useState("");
 
     const handleSubmit = () => {
-        sessionStorage.setItem("username", search);
+        sessionStorage.setItem("userId", search);
         window.location.href = "/";
     };
 
@@ -22,7 +22,7 @@ export default function Home() {
                 <h1 className="text-2xl font-semibold text-center mb-6">Login</h1>
                 
                 <div className="flex flex-col gap-3">
-                    <Label className="text-xl">Enter your username:</Label>
+                    <Label className="text-xl">Enter your user_id:</Label>
                     
                     <div>
                     <Input placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
