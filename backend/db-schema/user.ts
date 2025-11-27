@@ -1,8 +1,8 @@
-import { pgTable, serial, varchar } from 'drizzle-orm/pg-core';
+import { pgTable, integer, varchar } from 'drizzle-orm/pg-core';
 import { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 
 export const dimUsers = pgTable('dim_users', {
-  userId: serial('user_id').primaryKey().notNull(),
+  userId: integer('user_id').primaryKey().notNull(),
   username: varchar({ length: 50 }).notNull(),
   firstName: varchar('first_name', { length: 40 }).notNull(),
   lastName: varchar('last_name', { length: 40 }).notNull(),

@@ -7,6 +7,7 @@ import { eq, sql, ilike } from 'drizzle-orm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { BadRequestException } from '@nestjs/common';
 import { UpdateUserDto } from './dto/update-user.dto';
+import type { PlainUserDto } from 'src/partition/dto/partition.dto';
 
 @Injectable()
 export class UsersService {
@@ -93,5 +94,34 @@ export class UsersService {
     }
 
     return res[0];
+  }
+
+  async bulkInsertUsers(users: PlainUserDto[]): Promise<number> {
+    if (users.length === 0) {
+      return 0;
+    }
+
+    // Map incoming data to CreateUserDto with proper typing
+    // Note: userId is preserved from master node to maintain consistency
+    const userDtos = users.map((user) => ({
+      userId: user.userId,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      city: user.city,
+      country: user.country,
+      zipcode: user.zipcode,
+      gender: user.gender,
+    }));
+
+    // Use onConflictDoNothing to skip duplicates gracefully
+    // This handles re-syncs where users might already exist on slave nodes
+    const inserted = await this.db
+      .insert(schema.dimUsers)
+      .values(userDtos as CreateUserDto[])
+      .onConflictDoNothing()
+      .returning();
+
+    return inserted.length;
   }
 }
