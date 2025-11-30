@@ -21,27 +21,6 @@ import { UpdateUserDto } from './dto/update-user.dto';
 @Controller('users')
 export class UsersController {
   constructor(private readonly userService: UsersService) {}
-  @Post()
-  @ApiOperation({
-    summary: 'Create a new user',
-    description: 'Creates a new user with the provided details',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'User successfully created',
-    type: UserDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid request body',
-  })
-  @ApiResponse({
-    status: 500,
-    description: 'Internal server error',
-  })
-  createUser(@Body() createUserDto: CreateUserDto) {
-    return this.userService.createUser(createUserDto);
-  }
 
   @Get()
   @ApiOperation({
@@ -110,6 +89,29 @@ export class UsersController {
     return this.userService.getUserById(id);
   }
 
+  /*
+    @Post()
+  @ApiOperation({
+    summary: 'Create a new user',
+    description: 'Creates a new user with the provided details',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'User successfully created',
+    type: UserDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request body',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+  })
+  createUser(@Body() createUserDto: CreateUserDto) {
+    return this.userService.createUser(createUserDto);
+  }
+
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete user by ID',
@@ -159,4 +161,5 @@ export class UsersController {
   ) {
     return this.userService.updateUser(id, updateUserDto);
   }
+    */
 }

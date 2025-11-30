@@ -7,7 +7,6 @@ import { eq, sql, ilike } from 'drizzle-orm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { BadRequestException } from '@nestjs/common';
 import { UpdateUserDto } from './dto/update-user.dto';
-import type { PlainUserDto } from 'src/partition/dto/partition.dto';
 
 @Injectable()
 export class UsersService {
@@ -16,7 +15,7 @@ export class UsersService {
     private db: NodePgDatabase<typeof schema>,
   ) {}
   async getAllUsers(limit?: number): Promise<User[]> {
-    const baseQuery = this.db.select().from(schema.dimUsers);
+    const baseQuery = this.db.select().from(schema.users);
     const query = limit !== undefined ? baseQuery.limit(limit) : baseQuery;
     const res = await query;
 
@@ -26,8 +25,8 @@ export class UsersService {
   async getUserById(id: number) {
     const res = await this.db
       .select()
-      .from(schema.dimUsers)
-      .where(eq(schema.dimUsers.userId, id));
+      .from(schema.users)
+      .where(eq(schema.users.user_id, id));
 
     if (!res.length) {
       throw new NotFoundException(`User with id ${id} not found`);
@@ -40,10 +39,10 @@ export class UsersService {
     const search = `%${name}%`.trim();
     const res = await this.db
       .select()
-      .from(schema.dimUsers)
+      .from(schema.users)
       .where(
         ilike(
-          sql`${schema.dimUsers.firstName} || ' ' || ${schema.dimUsers.lastName}`,
+          sql`${schema.users.first_name} || ' ' || ${schema.users.last_name}`,
           search,
         ),
       )
@@ -52,27 +51,29 @@ export class UsersService {
     return res;
   }
 
+  /*
   async createUser(dto: CreateUserDto) {
     const existing = await this.db
       .select()
-      .from(schema.dimUsers)
-      .where(eq(schema.dimUsers.username, dto.username));
+      .from(schema.users)
+      .where(eq(schema.users.username, dto.username));
 
     if (existing.length > 0) {
       throw new BadRequestException('Username already exists');
     }
     const [res] = await this.db
-      .insert(schema.dimUsers)
+      .insert(schema.users)
       .values({ ...dto })
       .returning();
 
     return res;
   }
 
+  
   async deleteUser(id: number) {
     const res = await this.db
-      .delete(schema.dimUsers)
-      .where(eq(schema.dimUsers.userId, id))
+      .delete(schema.users)
+      .where(eq(schema.users.user_id, id))
       .returning();
 
     if (!res.length) {
@@ -84,9 +85,9 @@ export class UsersService {
 
   async updateUser(id: number, dto: UpdateUserDto) {
     const res = await this.db
-      .update(schema.dimUsers)
+      .update(schema.users)
       .set({ ...dto })
-      .where(eq(schema.dimUsers.userId, id))
+      .where(eq(schema.users.user_id, id))
       .returning();
 
     if (!res.length) {
@@ -102,12 +103,12 @@ export class UsersService {
     }
 
     // Map incoming data to CreateUserDto with proper typing
-    // Note: userId is preserved from master node to maintain consistency
+    // Note: user_id is preserved from master node to maintain consistency
     const userDtos = users.map((user) => ({
-      userId: user.userId,
+      user_id: user.user_id,
       username: user.username,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      first_name: user.first_name,
+      last_name: user.last_name,
       city: user.city,
       country: user.country,
       zipcode: user.zipcode,
@@ -117,11 +118,12 @@ export class UsersService {
     // Use onConflictDoNothing to skip duplicates gracefully
     // This handles re-syncs where users might already exist on slave nodes
     const inserted = await this.db
-      .insert(schema.dimUsers)
+      .insert(schema.users)
       .values(userDtos as CreateUserDto[])
       .onConflictDoNothing()
       .returning();
 
     return inserted.length;
   }
+  */
 }
