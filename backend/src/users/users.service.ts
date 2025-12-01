@@ -99,7 +99,7 @@ export class UsersService {
     return {
       message: `User with ID ${id} deleted successfully with distributed replication`,
       replication: trace.replication,
-      deletedUser: trace.before as User,
+      deletedUser: trace.before,
     };
   }
 
@@ -123,7 +123,7 @@ export class UsersService {
     }
 
     return {
-      user: trace.after as User,
+      user: trace.after,
       replication: trace.replication,
       message: 'User updated successfully with distributed replication',
     };
