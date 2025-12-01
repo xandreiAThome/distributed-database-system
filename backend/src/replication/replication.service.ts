@@ -71,6 +71,15 @@ export class ReplicationService {
     return { globalTxId };
   }
 
+  async markOutgoingStatus(globalTxId: string, success: boolean) {
+    const status = success ? 'APPLIED' : 'PENDING';
+
+    await this.db
+      .update(schema.replicationLog)
+      .set({ status })
+      .where(eq(schema.replicationLog.globalTxId, globalTxId));
+  }
+
   /**
    * Mark replication_log entry as APPLIED.
    */
@@ -202,6 +211,7 @@ export class ReplicationService {
     });
 
     return {
+      globalTxId,
       applied: appliedFlag,
       skipped: !appliedFlag,
       reason,

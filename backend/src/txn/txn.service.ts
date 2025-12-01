@@ -314,62 +314,6 @@ export class TxnService {
     });
 
     // ---------- AFTER COMMIT: send replication + build replication trace ----------
-    let replicationTrace: ReplicationTrace | null = null;
-
-    if (replicationDto) {
-      const baseUrl =
-        replicationDto.targetNode === 'node1'
-          ? CENTRAL_URL
-          : `http://${replicationDto.targetNode}:3000`;
-
-      let status: ReplicationStatus = 'PENDING';
-      let appliedOnTarget = false;
-      let reasonOnTarget: string | null = null;
-
-      if (!simReplicationError) {
-        try {
-          const res = await fetch(`${baseUrl}/replication/apply`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(replicationDto),
-          });
-
-          if (res.ok) {
-            const body = await res.json().catch(() => ({}));
-            appliedOnTarget = !!body.applied;
-            reasonOnTarget = body.reason ?? null;
-            status = 'APPLIED';
-
-            await this.replicationService.markApplied(
-              replicationDto.globalTxId,
-            );
-          } else {
-            console.error(
-              'Replication apply returned non-OK',
-              res.status,
-              await res.text().catch(() => ''),
-            );
-            status = 'FAILED';
-          }
-        } catch (err) {
-          console.error('Replication HTTP failed', err);
-          status = 'PENDING'; // stays pending for recovery
-        }
-      }
-
-      replicationTrace = {
-        targetNode: replicationDto.targetNode,
-        globalTxId: replicationDto.globalTxId,
-        status,
-        appliedOnTarget,
-        reasonOnTarget,
-      };
-    }
-
-    const finalRows = await this.db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.user_id, userId));
 
     const trace: LocalTxnTrace = {
       node: NODE_NAME,
@@ -380,8 +324,7 @@ export class TxnService {
       before: beforeRow ?? undefined,
       after: finalRow ?? undefined,
       steps: traceSteps,
-      replication: replicationTrace,
-      finalRowOnNode: finalRows[0] ?? undefined,
+      replicationDto,
     };
 
     return trace;
@@ -488,65 +431,6 @@ export class TxnService {
       };
     });
 
-    // 4) AFTER COMMIT: send replication + mark APPLIED + build replicationTrace
-    let replicationTrace: ReplicationTrace | null = null;
-
-    if (replicationDto) {
-      const baseUrl =
-        replicationDto.targetNode === 'node1'
-          ? CENTRAL_URL
-          : `http://${replicationDto.targetNode}:3000`;
-
-      let status: ReplicationStatus = 'PENDING';
-      let appliedOnTarget = false;
-      let reasonOnTarget: string | null = null;
-
-      if (!simReplicationError) {
-        try {
-          const res = await fetch(`${baseUrl}/replication/apply`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(replicationDto),
-          });
-
-          if (res.ok) {
-            const body = await res.json().catch(() => ({}));
-            appliedOnTarget = !!body.applied;
-            reasonOnTarget = body.reason ?? null;
-            status = 'APPLIED';
-
-            await this.replicationService.markApplied(
-              replicationDto.globalTxId,
-            );
-          } else {
-            console.error(
-              'Replication apply returned non-OK',
-              res.status,
-              await res.text().catch(() => ''),
-            );
-            status = 'FAILED';
-          }
-        } catch (err) {
-          console.error('Replication HTTP failed', err);
-          status = 'PENDING'; // stays pending for recovery
-        }
-      }
-
-      replicationTrace = {
-        targetNode: replicationDto.targetNode,
-        globalTxId: replicationDto.globalTxId,
-        status,
-        appliedOnTarget,
-        reasonOnTarget,
-      };
-    }
-
-    // 5) read back final row on THIS node
-    const finalRows = await this.db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.user_id, userId));
-
     const trace: LocalTxnTrace = {
       node: NODE_NAME,
       role: ROLE,
@@ -555,8 +439,7 @@ export class TxnService {
       userId,
       before: beforeRow ?? undefined,
       after: finalRow ?? undefined,
-      replication: replicationTrace,
-      finalRowOnNode: finalRows[0] ?? undefined,
+      replicationDto,
     };
 
     return trace;

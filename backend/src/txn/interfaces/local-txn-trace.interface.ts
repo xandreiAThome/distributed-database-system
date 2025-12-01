@@ -1,5 +1,5 @@
-import { ReplicationTrace } from 'src/replication/interfaces/replication-trace.interface';
 import { IsolationLevel } from 'src/enums/isolation-level';
+import { ReplicationDto } from 'src/replication/dto/replication-payload.dto';
 
 export interface LocalTxnTrace {
   node: string;
@@ -16,7 +16,7 @@ export interface LocalTxnTrace {
   readBefore?: any;
   readAfter?: any;
 
-  replication?: ReplicationTrace | null;
+  replicationDto?: ReplicationDto | null;
   finalRowOnNode?: any;
 
   steps?: Array<{
