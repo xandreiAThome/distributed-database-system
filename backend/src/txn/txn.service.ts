@@ -13,6 +13,7 @@ import { LocalTxnTrace } from './interfaces/local-txn-trace.interface';
 import { ScriptedTxnDto } from './dto/scripted-txn.dto';
 import { InsertTxnDto } from './dto/insert-txn.dto';
 import { RepOperationType } from 'src/enums/operation-type';
+import type { User } from '../../db-schema/user';
 
 const NODE_NAME = process.env.NODE_NAME ?? 'node1';
 const CENTRAL_URL = process.env.CENTRAL_URL ?? 'http://node1:3000';
@@ -58,7 +59,7 @@ export class TxnService {
       .from(schema.users);
 
     const maxId = rows[0]?.maxId ?? 0;
-    let newId = maxId + 1;
+    const newId = maxId + 1;
 
     // Central: simple max + 1
     if (ROLE === 'CENTRAL') {
@@ -105,19 +106,27 @@ export class TxnService {
 
   // Perform a scripted txn ON THE SAME PRIMARY KEY
   async runScriptedTxn(body: ScriptedTxnDto): Promise<LocalTxnTrace> {
-    let { isolation, userId, simReplicationError, steps } = body;
+    const { isolation, userId, simReplicationError, steps } = body;
     const now = new Date();
-    let targetNode = this.chooseTargetNode(userId);
+    const targetNode = this.chooseTargetNode(userId);
 
     const traceSteps: NonNullable<LocalTxnTrace['steps']> = [];
-    let lastRow: any = null;
-    let beforeRow: any = null;
+    let lastRow: User | null = null;
+    let beforeRow: User | null = null;
 
     // Run the whole script in ONE DB transaction
     const { finalRow, replicationDto } = await this.runWithIsolation<{
-      finalRow: any;
+      finalRow: User | null;
       replicationDto: ReplicationDto | null;
     }>(isolation, async (tx) => {
+      // Capture the "before" state at the start of the transaction
+      const beforeRows = await tx
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.user_id, userId));
+      beforeRow = beforeRows[0] ?? null;
+      lastRow = beforeRow;
+
       // ----- interpret steps -----
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
@@ -203,8 +212,8 @@ export class TxnService {
         }
 
         if (step.type === 'UPDATE') {
-          const data = step.data ?? {};
-          const base = lastRow ?? beforeRow ?? {};
+          const data = (step.data ?? {}) as Partial<Omit<User, 'user_id'>>;
+          const base = (lastRow ?? beforeRow ?? {}) as Partial<User>;
           const baseNow = new Date();
 
           await tx
@@ -248,7 +257,7 @@ export class TxnService {
         }
       }
 
-      const localFinalRow = lastRow;
+      const localFinalRow: User | null = lastRow;
       let localReplicationDto: ReplicationDto | null = null;
 
       // Only replicate if we have a target node AND at least one mutating op
@@ -263,24 +272,17 @@ export class TxnService {
 
         const payload: ReplicationDto['payload'] = isDelete
           ? {
-              username: null,
-              first_name: null,
-              last_name: null,
-              city: null,
-              country: null,
-              zipcode: null,
-              gender: null,
               updatedAt: now.toISOString(),
             }
           : {
-              username: localFinalRow.username ?? null,
-              first_name: localFinalRow.first_name ?? null,
-              last_name: localFinalRow.last_name ?? null,
-              city: localFinalRow.city ?? null,
-              country: localFinalRow.country ?? null,
-              zipcode: localFinalRow.zipcode ?? null,
-              gender: localFinalRow.gender ?? null,
-              updatedAt: (localFinalRow.updatedAt ?? now).toISOString(),
+              username: localFinalRow?.username ?? undefined,
+              first_name: localFinalRow?.first_name ?? undefined,
+              last_name: localFinalRow?.last_name ?? undefined,
+              city: localFinalRow?.city ?? undefined,
+              country: localFinalRow?.country ?? undefined,
+              zipcode: localFinalRow?.zipcode ?? undefined,
+              gender: localFinalRow?.gender ?? undefined,
+              updatedAt: (localFinalRow?.updatedAt ?? now).toISOString(),
             };
 
         localReplicationDto = {
@@ -336,21 +338,19 @@ export class TxnService {
     const { isolation, simReplicationError, ...fields } = body;
 
     // 1) Get a new userId
-    let userId: number;
-
-    userId = await this.generateNewUserId();
+    const userId = await this.generateNewUserId();
 
     // 2) Decide where this row should replicate to
     const targetNode = this.chooseTargetNode(userId);
 
-    let beforeRow: any = null; // new row, so "before" is always null/undefined
+    const beforeRow: User | null = null; // new row, so "before" is always null/undefined
 
     // 3) LOCAL TXN: insert into users + replication_log in the same transaction
     const { finalRow, replicationDto } = await this.runWithIsolation<{
-      finalRow: any;
+      finalRow: User | null;
       replicationDto: ReplicationDto | null;
     }>(isolation, async (tx) => {
-      let localFinalRow: any = null;
+      let localFinalRow: User | null = null;
       let localReplicationDto: ReplicationDto | null = null;
 
       // upsert on THIS node (insert or update if PK already exists)
@@ -393,13 +393,13 @@ export class TxnService {
         const globalTxId = randomUUID();
 
         const payload: ReplicationDto['payload'] = {
-          username: localFinalRow?.username ?? null,
-          first_name: localFinalRow?.first_name ?? null,
-          last_name: localFinalRow?.last_name ?? null,
-          city: localFinalRow?.city ?? null,
-          country: localFinalRow?.country ?? null,
-          zipcode: localFinalRow?.zipcode ?? null,
-          gender: localFinalRow?.gender ?? null,
+          username: localFinalRow?.username ?? undefined,
+          first_name: localFinalRow?.first_name ?? undefined,
+          last_name: localFinalRow?.last_name ?? undefined,
+          city: localFinalRow?.city ?? undefined,
+          country: localFinalRow?.country ?? undefined,
+          zipcode: localFinalRow?.zipcode ?? undefined,
+          gender: localFinalRow?.gender ?? undefined,
           updatedAt: (localFinalRow?.updatedAt ?? now).toISOString(),
         };
 
@@ -595,9 +595,12 @@ export class TxnService {
           });
 
           if (res.ok) {
-            const body = await res.json().catch(() => ({}));
+            const body = (await res.json().catch(() => ({}))) as Record<
+              string,
+              unknown
+            >;
             appliedOnTarget = !!body.applied;
-            reasonOnTarget = body.reason ?? null;
+            reasonOnTarget = (body.reason as string) ?? null;
             status = 'APPLIED';
 
             await this.replicationService.markApplied(

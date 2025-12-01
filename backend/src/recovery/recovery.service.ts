@@ -64,7 +64,7 @@ export class RecoveryService {
         operation: row.operation as RepOperationType,
         userPk: row.userPk,
         isolation,
-        payload: row.payload as any,
+        payload: row.payload as ReplicationDto['payload'],
       };
 
       const baseUrl =
@@ -83,9 +83,12 @@ export class RecoveryService {
         });
 
         if (res.ok) {
-          const body = await res.json().catch(() => ({}));
+          const body = (await res.json().catch(() => ({}))) as Record<
+            string,
+            unknown
+          >;
           appliedOnTarget = !!body.applied;
-          reasonOnTarget = body.reason ?? null;
+          reasonOnTarget = (body.reason as string) ?? null;
           status = ReplicationStatus.APPLIED;
 
           // mark as APPLIED so we don't retry infinitely
@@ -94,9 +97,10 @@ export class RecoveryService {
           status = ReplicationStatus.FAILED;
           error = `HTTP ${res.status} ${await res.text().catch(() => '')}`;
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         status = ReplicationStatus.PENDING; // still pending, will be retried next time
-        error = String(e?.message ?? e);
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        error = errorMessage;
       }
 
       details.push({

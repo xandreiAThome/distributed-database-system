@@ -8,6 +8,7 @@ import { CoordinatorModule } from './coordinator/coordinator.module';
 import { ReplicationModule } from './replication/replication.module';
 import { TxnModule } from './txn/txn.module';
 import { RecoveryModule } from './recovery/recovery.module';
+import { PartitionModule } from './partition/partition.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { RecoveryModule } from './recovery/recovery.module';
     ReplicationModule,
     TxnModule,
     RecoveryModule,
+    PartitionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -13,33 +13,39 @@ export class CreateUserDto {
   @Length(1, 50)
   username: string;
 
-  @ApiProperty({ description: 'First name', maxLength: 40 })
+  @ApiProperty({ description: 'First name', maxLength: 40, required: false })
   @IsString()
+  @IsOptional()
   @Length(1, 40)
-  firstName: string;
+  first_name?: string;
 
-  @ApiProperty({ description: 'Last name', maxLength: 40 })
+  @ApiProperty({ description: 'Last name', maxLength: 40, required: false })
   @IsString()
+  @IsOptional()
   @Length(1, 40)
-  lastName: string;
+  last_name?: string;
 
-  @ApiProperty({ description: 'City', maxLength: 50 })
+  @ApiProperty({ description: 'City', maxLength: 50, required: false })
   @IsString()
+  @IsOptional()
   @Length(1, 50)
-  city: string;
+  city?: string;
 
-  @ApiProperty({ description: 'Country', maxLength: 100 })
+  @ApiProperty({ description: 'Country', maxLength: 100, required: false })
   @IsString()
+  @IsOptional()
   @Length(1, 100)
-  country: string;
+  country?: string;
 
-  @ApiProperty({ description: 'Zip code', maxLength: 20 })
+  @ApiProperty({ description: 'Zip code', maxLength: 20, required: false })
   @IsString()
+  @IsOptional()
   @Length(1, 20)
-  zipcode: string;
+  zipcode?: string;
 
-  @ApiProperty({ description: 'Gender', maxLength: 6 })
+  @ApiProperty({ description: 'Gender', maxLength: 6, required: false })
   @IsString()
+  @IsOptional()
   @Length(1, 6)
-  gender: string;
+  gender?: string;
 }

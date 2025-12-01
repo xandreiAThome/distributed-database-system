@@ -2,7 +2,7 @@ import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { pgTable, integer, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('dim_users', {
-  user_id: integer('users_id').primaryKey(),
+  user_id: integer('user_id').primaryKey(),
   username: varchar('username', { length: 40 }),
   first_name: varchar('first_name', { length: 40 }),
   last_name: varchar('last_name', { length: 50 }),

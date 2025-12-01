@@ -8,5 +8,6 @@ import { DatabaseModule } from 'src/database/database.module';
   controllers: [TxnController],
   providers: [TxnService],
   imports: [ReplicationModule, DatabaseModule],
+  exports: [TxnService],
 })
 export class TxnModule {}

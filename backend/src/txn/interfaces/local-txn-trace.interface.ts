@@ -1,4 +1,6 @@
+import { ReplicationTrace } from 'src/replication/interfaces/replication-trace.interface';
 import { IsolationLevel } from 'src/enums/isolation-level';
+import { User } from 'db-schema/user';
 import { ReplicationDto } from 'src/replication/dto/replication-payload.dto';
 
 export interface LocalTxnTrace {
@@ -9,19 +11,19 @@ export interface LocalTxnTrace {
   userId: number;
 
   // write txns
-  before?: any;
-  after?: any;
+  before?: User | null;
+  after?: User | null;
 
   // (optional) for special read scenarios like Case2
-  readBefore?: any;
-  readAfter?: any;
+  readBefore?: User | null;
+  readAfter?: User | null;
 
   replicationDto?: ReplicationDto | null;
-  finalRowOnNode?: any;
+  finalRowOnNode?: User | null;
 
   steps?: Array<{
     label: string;
     at: string;
-    row: any | null;
+    row: User | null;
   }>;
 }

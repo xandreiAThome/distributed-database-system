@@ -22,6 +22,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export class UsersController {
   constructor(private readonly userService: UsersService) {}
 
+  /*
   @Get()
   @ApiOperation({
     summary: 'Get all users',
@@ -89,16 +90,27 @@ export class UsersController {
     return this.userService.getUserById(id);
   }
 
-  /*
-    @Post()
+  @Post()
   @ApiOperation({
     summary: 'Create a new user',
-    description: 'Creates a new user with the provided details',
+    description:
+      'Creates a new user with the provided details (with distributed replication)',
   })
   @ApiResponse({
     status: 201,
-    description: 'User successfully created',
-    type: UserDto,
+    description: 'User successfully created with replication trace',
+    schema: {
+      example: {
+        user: {
+          user_id: 1,
+          username: 'john',
+          first_name: 'John',
+          last_name: 'Doe',
+        },
+        replication: { status: 'APPLIED', targetNode: 'node2' },
+        message: 'User created successfully with distributed replication',
+      },
+    },
   })
   @ApiResponse({
     status: 400,
@@ -115,11 +127,19 @@ export class UsersController {
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete user by ID',
-    description: 'Deletes a user by their unique ID',
+    description:
+      'Deletes a user by their unique ID (with distributed replication)',
   })
   @ApiResponse({
     status: 200,
-    description: 'User successfully deleted',
+    description: 'User successfully deleted with replication trace',
+    schema: {
+      example: {
+        message:
+          'User with ID 1 deleted successfully with distributed replication',
+        replication: { status: 'APPLIED', targetNode: 'node2' },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
@@ -136,12 +156,24 @@ export class UsersController {
   @Patch(':id')
   @ApiOperation({
     summary: 'Update user by ID',
-    description: 'Updates user fields by their unique ID',
+    description:
+      'Updates user fields by their unique ID (with distributed replication)',
   })
   @ApiResponse({
     status: 200,
-    description: 'User successfully updated',
-    type: UserDto,
+    description: 'User successfully updated with replication trace',
+    schema: {
+      example: {
+        user: {
+          user_id: 1,
+          username: 'john',
+          first_name: 'John',
+          last_name: 'Doe',
+        },
+        replication: { status: 'APPLIED', targetNode: 'node2' },
+        message: 'User updated successfully with distributed replication',
+      },
+    },
   })
   @ApiResponse({
     status: 400,

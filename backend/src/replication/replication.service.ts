@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../db-schema/schema';
 import { ReplicationDto } from './dto/replication-payload.dto';
+import { RepOperationType } from '../enums/operation-type';
 
 type Db = NodePgDatabase<typeof schema>;
 
@@ -126,7 +127,7 @@ export class ReplicationService {
       });
 
       const currentUpdatedAt: Date | null = currentRow
-        ? (currentRow.updatedAt as Date | null)
+        ? (currentRow.updatedAt as Date)
         : null;
 
       const shouldApply = this.shouldApplyIncoming(
@@ -150,7 +151,7 @@ export class ReplicationService {
 
       // --- apply INSERT / UPDATE / DELETE via Drizzle ---
 
-      if (operation === 'UPSERT') {
+      if (operation === RepOperationType.UPSERT) {
         if (!currentRow) {
           // No existing row → simple insert
           await tx.insert(schema.users).values({
@@ -198,7 +199,7 @@ export class ReplicationService {
             })
             .where(eq(schema.users.user_id, userPk));
         }
-      } else if (operation === 'DELETE') {
+      } else if (operation === RepOperationType.DELETE) {
         await tx.delete(schema.users).where(eq(schema.users.user_id, userPk));
       }
 
