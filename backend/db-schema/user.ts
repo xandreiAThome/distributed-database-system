@@ -1,17 +1,16 @@
-import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { pgTable, integer, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { pgTable, integer, varchar } from 'drizzle-orm/pg-core';
+import { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 
-export const users = pgTable('dim_users', {
-  user_id: integer('users_id').primaryKey(),
-  username: varchar('username', { length: 40 }),
-  first_name: varchar('first_name', { length: 40 }),
-  last_name: varchar('last_name', { length: 50 }),
-  city: varchar('city', { length: 50 }),
-  country: varchar('country', { length: 100 }),
-  zipcode: varchar('zipcode', { length: 20 }),
-  gender: varchar('gender', { length: 6 }),
-  updatedAt: timestamp('updatedat'),
+export const dimUsers = pgTable('dim_users', {
+  userId: integer('user_id').primaryKey().notNull(),
+  username: varchar({ length: 50 }).notNull(),
+  firstName: varchar('first_name', { length: 40 }).notNull(),
+  lastName: varchar('last_name', { length: 40 }).notNull(),
+  city: varchar({ length: 50 }).notNull(),
+  country: varchar({ length: 100 }).notNull(),
+  zipcode: varchar({ length: 20 }).notNull(),
+  gender: varchar({ length: 6 }).notNull(),
 });
 
-export type User = InferSelectModel<typeof users>;
-export type NewUser = InferInsertModel<typeof users>;
+export type User = InferSelectModel<typeof dimUsers>;
+export type NewUser = InferInsertModel<typeof dimUsers>;

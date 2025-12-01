@@ -36,7 +36,6 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
   const nodeRole = process.env.NODE_ROLE ?? 'standalone';
 
-  app.enableCors();
   await app.listen(port);
   logger.log(`Application started on port ${port} (Role: ${nodeRole})`);
 }

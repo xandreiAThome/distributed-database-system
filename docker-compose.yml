@@ -1,99 +1,89 @@
-version: "3.9"
+version: "3.8"
 
 services:
-  db1:
-    image: postgres:16
-    container_name: db1
-    restart: always
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${DB1_NAME}
-    ports:
-      - "${DB1_PORT}:5432"
-    volumes:
-      - db1_data:/var/lib/postgresql/data
-
-  db2:
-    image: postgres:16
-    container_name: db2
-    restart: always
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${DB2_NAME}
-    ports:
-      - "${DB2_PORT}:5432"
-    volumes:
-      - db2_data:/var/lib/postgresql/data
-
-  db3:
-    image: postgres:16
-    container_name: db3
-    restart: always
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${DB3_NAME}
-    ports:
-      - "${DB3_PORT}:5432"
-    volumes:
-      - db3_data:/var/lib/postgresql/data
-
-  node1:
+  # Master Node
+  backend-master:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: node1
-    restart: always
-    depends_on:
-      - db1
+    container_name: backend-master
     environment:
-      NODE_NAME: node1
-      NODE_ROLE: CENTRAL
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db1:5432/${DB1_NAME}
-      PORT: ${NODE_PORT}
-      CENTRAL_URL: http://node1:${NODE_PORT}
-      NODE2_URL: http://node2:${NODE_PORT}
-      NODE3_URL: http://node3:${NODE_PORT}
+      DATABASE_URL: ${MASTER_DB_URL}
+      NODE_ROLE: master
+      PORT: ${MASTER_PORT}
+      MASTER_URL: ${MASTER_URL}
+      SLAVE_1_URL: ${SLAVE_1_URL}
+      SLAVE_2_URL: ${SLAVE_2_URL}
+      SLAVE_1_ID: ${SLAVE_1_ID}
+      SLAVE_2_ID: ${SLAVE_2_ID}
     ports:
-      - "${NODE1_HOST_PORT}:${NODE_PORT}"
+      - "${MASTER_PORT}:${MASTER_PORT}"
+    networks:
+      - distributed-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${MASTER_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
-  node2:
+  # Slave Node 1
+  backend-slave-1:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: node2
-    restart: always
-    depends_on:
-      - db2
+    container_name: backend-slave-1
     environment:
-      NODE_NAME: node2
-      NODE_ROLE: FRAGMENT
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db2:5432/${DB2_NAME}
-      PORT: ${NODE_PORT}
-      CENTRAL_URL: http://node1:${NODE_PORT}
+      DATABASE_URL: ${SLAVE_1_DB_URL}
+      NODE_ROLE: slave
+      SLAVE_ID: ${SLAVE_1_ID}
+      PORT: ${SLAVE_1_PORT}
+      MASTER_URL: ${MASTER_URL}
+      SLAVE_1_URL: ${SLAVE_1_URL}
+      SLAVE_2_URL: ${SLAVE_2_URL}
+      SLAVE_1_ID: ${SLAVE_1_ID}
+      SLAVE_2_ID: ${SLAVE_2_ID}
     ports:
-      - "${NODE2_HOST_PORT}:${NODE_PORT}"
+      - "${SLAVE_1_PORT}:${SLAVE_1_PORT}"
+    networks:
+      - distributed-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${SLAVE_1_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
-  node3:
+  # Slave Node 2
+  backend-slave-2:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: node3
-    restart: always
-    depends_on:
-      - db3
+    container_name: backend-slave-2
     environment:
-      NODE_NAME: node3
-      NODE_ROLE: FRAGMENT
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db3:5432/${DB3_NAME}
-      PORT: ${NODE_PORT}
-      CENTRAL_URL: http://node1:${NODE_PORT}
+      DATABASE_URL: ${SLAVE_2_DB_URL}
+      NODE_ROLE: slave
+      SLAVE_ID: ${SLAVE_2_ID}
+      PORT: ${SLAVE_2_PORT}
+      MASTER_URL: ${MASTER_URL}
+      SLAVE_1_URL: ${SLAVE_1_URL}
+      SLAVE_2_URL: ${SLAVE_2_URL}
+      SLAVE_1_ID: ${SLAVE_1_ID}
+      SLAVE_2_ID: ${SLAVE_2_ID}
     ports:
-      - "${NODE3_HOST_PORT}:${NODE_PORT}"
+      - "${SLAVE_2_PORT}:${SLAVE_2_PORT}"
+    networks:
+      - distributed-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${SLAVE_2_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
-volumes:
-  db1_data:
-  db2_data:
-  db3_data:
+networks:
+  distributed-network:
+    driver: bridge
