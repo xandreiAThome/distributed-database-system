@@ -34,7 +34,7 @@ export class UsersService {
       throw new NotFoundException(`User with id ${id} not found`);
     }
 
-    return res;
+    return res[0];
   }
 
   async getUsersByName(name: string, limit: number = 10) {

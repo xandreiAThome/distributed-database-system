@@ -34,7 +34,7 @@ export class PartitionService {
    */
   private initializeNodes(): void {
     const nodeName = process.env.NODE_NAME ?? 'node1';
-    const centralUrl = process.env.CENTRAL_URL ?? 'http://node1:3000';
+    const centralUrl = process.env.CENTRAL_URL ?? 'http://node1:4000';
     const evenNodeName = process.env.EVEN_NODE ?? 'node2';
     const oddNodeName = process.env.ODD_NODE ?? 'node3';
 
@@ -47,13 +47,13 @@ export class PartitionService {
     this.evenNode = {
       id: evenNodeName,
       role: 'FRAGMENT',
-      url: `http://${evenNodeName}:3000`,
+      url: `http://${evenNodeName}:4000`,
     };
 
     this.oddNode = {
       id: oddNodeName,
       role: 'FRAGMENT',
-      url: `http://${oddNodeName}:3000`,
+      url: `http://${oddNodeName}:4000`,
     };
 
     this.nodes = [this.centralNode, this.evenNode, this.oddNode];
