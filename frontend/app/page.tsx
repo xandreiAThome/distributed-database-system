@@ -7,10 +7,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface UserInfo {
-  userId: string;
+  user_id: string;
   username: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   city: string;
   country: string;
   zipcode: string;
@@ -37,8 +37,8 @@ export default function Home() {
   // Form fields
   const [form, setForm] = useState({
     username: "",
-    firstName: "",
-    lastName: "",
+    first_name: "",
+    last_name: "",
     city: "",
     country: "",
     zipcode: "",
@@ -70,8 +70,8 @@ export default function Home() {
     if (!userInfo) return;
     setForm({
       username: userInfo.username ?? "",
-      firstName: userInfo.firstName ?? "",
-      lastName: userInfo.lastName ?? "",
+      first_name: userInfo.first_name ?? "",
+      last_name: userInfo.last_name ?? "",
       city: userInfo.city ?? "",
       country: userInfo.country ?? "",
       zipcode: userInfo.zipcode ?? "",
@@ -85,8 +85,8 @@ export default function Home() {
   // Simple client validation
   function validateForm() {
     if (!form.username.trim()) return "Username is required.";
-    if (!form.firstName.trim()) return "First name is required.";
-    if (!form.lastName.trim()) return "Last name is required.";
+    if (!form.first_name.trim()) return "First name is required.";
+    if (!form.last_name.trim()) return "Last name is required.";
     return null;
   }
 
@@ -108,8 +108,8 @@ export default function Home() {
       // Use PATCH to send only changed fields
       const payload = {
         username: form.username,
-        firstName: form.firstName,
-        lastName: form.lastName,
+        first_name: form.first_name,
+        last_name: form.last_name,
         city: form.city,
         country: form.country,
         zipcode: form.zipcode,
@@ -178,10 +178,10 @@ export default function Home() {
             <h2 className="text-xl font-semibold mb-4">User Details</h2>
 
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><span className="font-medium">User ID:</span> {userInfo?.userId ?? "-"}</div>
+              <div><span className="font-medium">User ID:</span> {userInfo?.user_id ?? "-"}</div>
               <div><span className="font-medium">Username:</span> {userInfo?.username ?? "-"}</div>
-              <div><span className="font-medium">First Name:</span> {userInfo?.firstName ?? "-"}</div>
-              <div><span className="font-medium">Last Name:</span> {userInfo?.lastName ?? "-"}</div>
+              <div><span className="font-medium">First Name:</span> {userInfo?.first_name ?? "-"}</div>
+              <div><span className="font-medium">Last Name:</span> {userInfo?.last_name ?? "-"}</div>
               <div><span className="font-medium">City:</span> {userInfo?.city ?? "-"}</div>
               <div><span className="font-medium">Country:</span> {userInfo?.country ?? "-"}</div>
               <div><span className="font-medium">Zip Code:</span> {userInfo?.zipcode ?? "-"}</div>
@@ -209,17 +209,6 @@ export default function Home() {
                   onClick={openEditor}
                 >
                   <Pencil size={16} /> Edit
-                </button>
-
-                <button
-                  className="flex items-center gap-2 px-4 py-3 w-full text-left hover:bg-red-50 text-red-600 border-t border-gray-200"
-                  onClick={() => {
-                    setShowMenu(false);
-                    // keep delete handler placeholder; implement as needed
-                    // e.g. call axios.delete(...)
-                  }}
-                >
-                  <Trash size={16} /> Delete
                 </button>
               </div>
             )}
@@ -258,16 +247,16 @@ export default function Home() {
               <label className="space-y-1">
                 <div className="text-xs font-medium">First Name</div>
                 <Input
-                  value={form.firstName}
-                  onChange={(e: any) => setForm({ ...form, firstName: e.target.value })}
+                  value={form.first_name}
+                  onChange={(e: any) => setForm({ ...form, first_name: e.target.value })}
                 />
               </label>
 
               <label className="space-y-1">
                 <div className="text-xs font-medium">Last Name</div>
                 <Input
-                  value={form.lastName}
-                  onChange={(e: any) => setForm({ ...form, lastName: e.target.value })}
+                  value={form.last_name}
+                  onChange={(e: any) => setForm({ ...form, last_name: e.target.value })}
                 />
               </label>
 

@@ -67,13 +67,13 @@ const SearchPage = () => {
           {results.length > 0 ? (
             results.map((user) => (
               <UserCards
-                key={user.userId}
-                name={`${user.firstName} ${user.lastName}`}
+                key={user.user_id}
+                name={`${user.first_name} ${user.last_name}`}
                 username={user.username}
                 city={user.city}
                 country={user.country}
                 gender={user.gender}
-                id={user.userId}
+                id={user.user_id}
               />
             ))
           ) : (

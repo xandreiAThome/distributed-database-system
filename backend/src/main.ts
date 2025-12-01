@@ -35,7 +35,7 @@ async function bootstrap() {
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, documentFactory);
 
-  const port = process.env.PORT ?? 3000;
+  const port = process.env.PORT ?? 4000;
   const nodeRole = process.env.NODE_ROLE ?? 'standalone';
 
   app.enableCors();
