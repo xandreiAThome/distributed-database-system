@@ -5,7 +5,9 @@ import { UsersModule } from './users/users.module';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import { CoordinatorModule } from './coordinator/coordinator.module';
-import { PartitionModule } from './partition/partition.module';
+import { ReplicationModule } from './replication/replication.module';
+import { TxnModule } from './txn/txn.module';
+import { RecoveryModule } from './recovery/recovery.module';
 
 @Module({
   imports: [
@@ -13,7 +15,9 @@ import { PartitionModule } from './partition/partition.module';
     DatabaseModule,
     ConfigModule.forRoot({ isGlobal: true }),
     CoordinatorModule,
-    PartitionModule,
+    ReplicationModule,
+    TxnModule,
+    RecoveryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
