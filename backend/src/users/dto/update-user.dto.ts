@@ -12,13 +12,13 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @Length(1, 40)
-  firstName?: string;
+  first_name?: string;
 
   @ApiPropertyOptional({ description: 'Last name', maxLength: 40 })
   @IsOptional()
   @IsString()
   @Length(1, 40)
-  lastName?: string;
+  last_name?: string;
 
   @ApiPropertyOptional({ description: 'City', maxLength: 50 })
   @IsOptional()

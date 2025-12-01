@@ -119,6 +119,14 @@ export class TxnService {
       finalRow: User | null;
       replicationDto: ReplicationDto | null;
     }>(isolation, async (tx) => {
+      // Capture the "before" state at the start of the transaction
+      const beforeRows = await tx
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.user_id, userId));
+      beforeRow = beforeRows[0] ?? null;
+      lastRow = beforeRow;
+
       // ----- interpret steps -----
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
