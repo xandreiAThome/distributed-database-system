@@ -12,102 +12,102 @@ export interface SyncResult {
   error?: string;
 }
 
+/**
+ * Distributed sync service for the CENTRAL node to distribute rows to FRAGMENT nodes
+ * Fetches all users from central database and distributes them to fragment nodes
+ * based on user_id parity:
+ * - Even user_ids → EVEN_NODE (node2)
+ * - Odd user_ids → ODD_NODE (node3)
+ */
 @Injectable()
 export class DistributedSyncService {
   private readonly logger = new Logger(DistributedSyncService.name);
   private partitionService: PartitionService;
+  private nodeRole: string;
+  private nodeName: string;
 
   constructor(
     @Inject(DatabaseAsyncProvider)
     private db: NodePgDatabase<typeof schema>,
   ) {
-    // Initialize partition service with nodes configuration
-    this.partitionService = new PartitionService({
-      nodes: this.getNodesConfig(),
-      partitionKey: 'userId',
-    });
+    this.partitionService = new PartitionService();
+    this.nodeRole = process.env.NODE_ROLE ?? 'FRAGMENT';
+    this.nodeName = process.env.NODE_NAME ?? 'node1';
   }
 
   /**
-   * Get nodes configuration from environment
-   */
-  private getNodesConfig(): PartitionNode[] {
-    return [
-      {
-        id: 'master',
-        role: 'master',
-        port: parseInt(process.env.MASTER_PORT || '3001', 10),
-        url: process.env.MASTER_URL || 'http://localhost:3001',
-      },
-      {
-        id: process.env.SLAVE_1_ID || 'slave-1',
-        role: 'slave',
-        port: parseInt(process.env.SLAVE_1_PORT || '3002', 10),
-        url: process.env.SLAVE_1_URL || 'http://localhost:3002',
-      },
-      {
-        id: process.env.SLAVE_2_ID || 'slave-2',
-        role: 'slave',
-        port: parseInt(process.env.SLAVE_2_PORT || '3003', 10),
-        url: process.env.SLAVE_2_URL || 'http://localhost:3003',
-      },
-    ];
-  }
-
-  /**
-   * Fetch all users from master database and distribute to slave nodes
+   * Fetch all users from central database and distribute to fragment nodes
+   * This should only be called on the CENTRAL node
    */
   async fetchAndDistributeUsers(): Promise<SyncResult[]> {
-    try {
-      this.logger.log('Fetching all users from master database');
+    // Only central node can distribute
+    if (this.nodeRole !== 'CENTRAL') {
+      this.logger.warn(
+        `fetchAndDistributeUsers called on ${this.nodeName} (role: ${this.nodeRole}). Only CENTRAL node should call this.`,
+      );
+      return [];
+    }
 
-      // Fetch all users from master database
-      const users = await this.db.select().from(schema.dimUsers);
+    try {
+      this.logger.log('Fetching all users from central database');
+
+      // Fetch all users from central database
+      const users = await this.db.select().from(schema.users);
 
       if (users.length === 0) {
-        this.logger.warn('No users found in master database');
+        this.logger.warn('No users found in central database');
         return [];
       }
 
       this.logger.log(
-        `Fetched ${users.length} users from master database. Starting distribution...`,
+        `Fetched ${users.length} users from central database. Starting distribution to fragments...`,
       );
 
-      // Partition and sync to slaves
-      return this.syncToSlaves(users);
+      // Partition and sync to fragments
+      return this.syncToFragments(users);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Failed to fetch and distribute users: ${errorMsg}`);
+      this.logger.error(
+        `Failed to fetch and distribute users: ${errorMsg}`,
+        error instanceof Error ? error.stack : '',
+      );
       throw error;
     }
   }
 
   /**
-   * Partition users and sync to slave nodes
+   * Partition users and sync to fragment nodes
    */
-  private async syncToSlaves(users: User[]): Promise<SyncResult[]> {
-    this.logger.log(`Starting distribution of ${users.length} users`);
-
-    // Partition users by userId
-    const partitions = this.partitionService.partitionData(
-      users,
-      (user) => user.userId,
+  private async syncToFragments(users: User[]): Promise<SyncResult[]> {
+    this.logger.log(
+      `Starting distribution of ${users.length} users to fragments`,
     );
+
+    // Partition users by user_id parity
+    const partitions = this.partitionService.partitionUsers(users);
 
     // Log partition stats
     const stats = this.partitionService.getPartitionStats(partitions);
-    this.logger.log(`Partition distribution: ${JSON.stringify(stats)}`);
+    this.logger.log(
+      `Partition distribution: ${JSON.stringify(stats)} (even users → node2, odd users → node3)`,
+    );
 
-    // Send partitioned data to each slave node
+    // Send partitioned data to each fragment node
     const results: SyncResult[] = [];
 
-    for (const [nodeId, nodeUsers] of partitions) {
-      const node = this.partitionService
-        .getSlaveNodes()
-        .find((n) => n.id === nodeId);
-      if (node) {
-        const result = await this.syncToNode(node, nodeUsers);
+    for (const fragmentNode of this.partitionService.getFragmentNodes()) {
+      const nodeUsers = partitions.get(fragmentNode.id) || [];
+
+      if (nodeUsers.length > 0) {
+        const result = await this.syncToNode(fragmentNode, nodeUsers);
         results.push(result);
+      } else {
+        this.logger.log(`No users to sync to ${fragmentNode.id}`);
+        results.push({
+          nodeId: fragmentNode.id,
+          success: true,
+          recordsCount: 0,
+        });
       }
     }
 
@@ -115,7 +115,7 @@ export class DistributedSyncService {
   }
 
   /**
-   * Sync data to a specific node in chunks
+   * Sync data to a specific fragment node in chunks
    */
   private async syncToNode(
     node: PartitionNode,
@@ -131,9 +131,11 @@ export class DistributedSyncService {
 
       for (let i = 0; i < users.length; i += CHUNK_SIZE) {
         const chunk = users.slice(i, Math.min(i + CHUNK_SIZE, users.length));
+        const chunkNum = Math.floor(i / CHUNK_SIZE) + 1;
+        const totalChunks = Math.ceil(users.length / CHUNK_SIZE);
 
         this.logger.log(
-          `Sending chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(users.length / CHUNK_SIZE)} with ${chunk.length} users to ${node.id}`,
+          `Sending chunk ${chunkNum}/${totalChunks} with ${chunk.length} users to ${node.id}`,
         );
 
         const response = await fetch(`${node.url}/partition/bulk-insert`, {
@@ -151,6 +153,10 @@ export class DistributedSyncService {
 
         const result = (await response.json()) as { count: number };
         totalInserted += result.count || chunk.length;
+
+        this.logger.log(
+          `Chunk ${chunkNum}/${totalChunks} synced successfully to ${node.id}`,
+        );
       }
 
       this.logger.log(
@@ -182,13 +188,64 @@ export class DistributedSyncService {
    * Get which node a user should be stored on
    */
   getNodeForUser(userId: number): PartitionNode {
-    return this.partitionService.getTargetNode(userId);
+    return userId % 2 === 0
+      ? this.partitionService.getFragmentNodes()[0]
+      : this.partitionService.getFragmentNodes()[1];
   }
 
   /**
-   * Get partition statistics
+   * Get partition service instance
    */
   getPartitionService(): PartitionService {
     return this.partitionService;
+  }
+
+  /**
+   * Bulk insert users into database
+   * Handles upsert conflicts
+   */
+  async bulkInsertUsers(users: User[]): Promise<number> {
+    if (users.length === 0) return 0;
+
+    try {
+      this.logger.log(`Bulk inserting ${users.length} users into database`);
+
+      // Normalize timestamps - convert ISO strings to Date objects
+      const normalizedUsers = users.map((user) => ({
+        ...user,
+        updatedAt:
+          user.updatedAt instanceof Date
+            ? user.updatedAt
+            : new Date(user.updatedAt as unknown as string),
+      }));
+
+      // Use upsert to handle potential conflicts
+      await this.db
+        .insert(schema.users)
+        .values(normalizedUsers)
+        .onConflictDoUpdate({
+          target: schema.users.user_id,
+          set: {
+            username: schema.users.username,
+            first_name: schema.users.first_name,
+            last_name: schema.users.last_name,
+            city: schema.users.city,
+            country: schema.users.country,
+            zipcode: schema.users.zipcode,
+            gender: schema.users.gender,
+            updatedAt: schema.users.updatedAt,
+          },
+        });
+
+      this.logger.log(`Successfully inserted ${users.length} users`);
+      return users.length;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Bulk insert failed: ${errorMsg}`,
+        error instanceof Error ? error.stack : '',
+      );
+      throw error;
+    }
   }
 }

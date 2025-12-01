@@ -1,111 +1,127 @@
-/**
- * Partition Service
- * Implements consistent hashing with modulo algorithm to distribute data across nodes
- */
+import { Injectable, Logger } from '@nestjs/common';
+import { User } from 'db-schema/user';
 
 export interface PartitionNode {
   id: string;
-  role: 'master' | 'slave';
-  port: number;
+  role: 'CENTRAL' | 'FRAGMENT';
   url: string;
 }
 
-export interface PartitionConfig {
-  nodes: PartitionNode[];
-  partitionKey: string; // The field to hash (e.g., 'userId' or 'username')
+export interface PartitionStats {
+  [nodeId: string]: number;
 }
 
+/**
+ * Partitioning service for distributing rows from central node to fragment nodes
+ * based on user_id parity:
+ * - Even user_ids go to EVEN_NODE (node2)
+ * - Odd user_ids go to ODD_NODE (node3)
+ */
+@Injectable()
 export class PartitionService {
-  private config: PartitionConfig;
+  private readonly logger = new Logger(PartitionService.name);
+  private nodes: PartitionNode[];
+  private centralNode: PartitionNode;
+  private evenNode: PartitionNode;
+  private oddNode: PartitionNode;
 
-  constructor(config: PartitionConfig) {
-    this.config = config;
+  constructor() {
+    this.initializeNodes();
   }
 
   /**
-   * Calculate hash using simple modulo algorithm
-   * Only partitions across slave nodes (master keeps everything)
-   * @param key - The value to hash (userId)
-   * @param slaveNodeCount - Number of slave nodes to distribute across
-   * @returns Partition index (0 to slaveNodeCount-1)
+   * Initialize nodes from environment variables
    */
-  private hashModulo(key: string | number, slaveNodeCount: number): number {
-    // Direct modulo on the numeric value for consistent distribution
-    // Only distributes across slave nodes, not master
-    const numericKey = typeof key === 'string' ? parseInt(key, 10) : key;
-    return Math.abs(numericKey) % slaveNodeCount;
+  private initializeNodes(): void {
+    const nodeName = process.env.NODE_NAME ?? 'node1';
+    const centralUrl = process.env.CENTRAL_URL ?? 'http://node1:3000';
+    const evenNodeName = process.env.EVEN_NODE ?? 'node2';
+    const oddNodeName = process.env.ODD_NODE ?? 'node3';
+
+    this.centralNode = {
+      id: nodeName,
+      role: 'CENTRAL',
+      url: centralUrl,
+    };
+
+    this.evenNode = {
+      id: evenNodeName,
+      role: 'FRAGMENT',
+      url: `http://${evenNodeName}:3000`,
+    };
+
+    this.oddNode = {
+      id: oddNodeName,
+      role: 'FRAGMENT',
+      url: `http://${oddNodeName}:3000`,
+    };
+
+    this.nodes = [this.centralNode, this.evenNode, this.oddNode];
+    this.logger.log(
+      `Partition service initialized with nodes: ${JSON.stringify(this.nodes)}`,
+    );
   }
 
   /**
-   * Get the partition index for a given key (only across slaves)
+   * Get the target node for a given user_id
+   * - Even user_ids → EVEN_NODE (node2)
+   * - Odd user_ids → ODD_NODE (node3)
    */
-  getPartitionIndex(key: string | number): number {
-    const slaveNodes = this.getSlaveNodes();
-    return this.hashModulo(key, slaveNodes.length);
+  private getTargetNodeForUserId(userId: number): PartitionNode {
+    return userId % 2 === 0 ? this.evenNode : this.oddNode;
   }
 
   /**
-   * Get the target node for a given key (only returns slave nodes)
+   * Partition users by their target node based on user_id parity
+   * Returns a Map of nodeId → users array
    */
-  getTargetNode(key: string | number): PartitionNode {
-    const slaveNodes = this.getSlaveNodes();
-    const index = this.getPartitionIndex(key);
-    return slaveNodes[index];
-  }
+  partitionUsers(users: User[]): Map<string, User[]> {
+    const partitions = new Map<string, User[]>();
 
-  /**
-   * Get all slave nodes
-   */
-  getSlaveNodes(): PartitionNode[] {
-    return this.config.nodes.filter((node) => node.role === 'slave');
-  }
+    // Initialize partition buckets
+    partitions.set(this.evenNode.id, []);
+    partitions.set(this.oddNode.id, []);
 
-  /**
-   * Get master node
-   */
-  getMasterNode(): PartitionNode | undefined {
-    return this.config.nodes.find((node) => node.role === 'master');
-  }
-
-  /**
-   * Partition data into buckets for each node
-   */
-  partitionData<T>(
-    data: T[],
-    keyExtractor: (item: T) => string | number,
-  ): Map<string, T[]> {
-    const partitions = new Map<string, T[]>();
-
-    // Initialize partitions for each node
-    this.config.nodes.forEach((node) => {
-      partitions.set(node.id, []);
-    });
-
-    // Distribute data based on hash
-    data.forEach((item) => {
-      const key = keyExtractor(item);
-      const node = this.getTargetNode(key);
-      const nodeData = partitions.get(node.id) || [];
-      nodeData.push(item);
-      partitions.set(node.id, nodeData);
-    });
+    // Distribute users to partition buckets
+    for (const user of users) {
+      const targetNode = this.getTargetNodeForUserId(user.user_id);
+      const bucket = partitions.get(targetNode.id) || [];
+      bucket.push(user);
+      partitions.set(targetNode.id, bucket);
+    }
 
     return partitions;
   }
 
   /**
-   * Get statistics about partitioned data
+   * Get partition statistics
    */
-  getPartitionStats<T>(partitions: Map<string, T[]>): Record<string, number> {
-    const stats: Record<string, number> = {};
-
-    partitions.forEach((data, nodeId) => {
-      const node = this.config.nodes.find((n) => n.id === nodeId);
-      if (node) {
-        stats[`${node.role}:${node.id}`] = data.length;
-      }
-    });
-
+  getPartitionStats(partitions: Map<string, User[]>): PartitionStats {
+    const stats: PartitionStats = {};
+    for (const [nodeId, users] of partitions) {
+      stats[nodeId] = users.length;
+    }
     return stats;
+  }
+
+  /**
+   * Get all fragment nodes
+   */
+  getFragmentNodes(): PartitionNode[] {
+    return [this.evenNode, this.oddNode];
+  }
+
+  /**
+   * Get central node
+   */
+  getCentralNode(): PartitionNode {
+    return this.centralNode;
+  }
+
+  /**
+   * Get all nodes
+   */
+  getAllNodes(): PartitionNode[] {
+    return this.nodes;
   }
 }

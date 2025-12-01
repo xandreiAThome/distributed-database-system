@@ -1,58 +1,135 @@
-import { Controller, Post, Body, Logger, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, Get, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { DistributedSyncService, SyncResult } from './distributed-sync.service';
-import { BulkInsertResponseDto, BulkInsertUsersDto } from './dto/partition.dto';
-import { SyncResultDto } from './dto/sync-result.dto';
-import { UsersService } from 'src/users/users.service';
+import { User } from 'db-schema/user';
 
 @ApiTags('partition')
 @Controller('partition')
 export class PartitionController {
   private readonly logger = new Logger(PartitionController.name);
+  private nodeRole: string;
 
-  constructor(
-    private readonly syncService: DistributedSyncService,
-    private readonly usersService: UsersService,
-  ) {}
+  constructor(private readonly syncService: DistributedSyncService) {
+    this.nodeRole = process.env.NODE_ROLE ?? 'FRAGMENT';
+  }
 
-  @Post('fetch-and-distribute')
-  @HttpCode(200)
+  /**
+   * Bulk insert users into fragment node database
+   * Called by central node to insert partitioned data
+   */
+  @Post('bulk-insert')
   @ApiOperation({
-    summary: 'Fetch users from master DB and distribute to slaves',
+    summary: 'Bulk insert users',
     description:
-      'Fetches all users from the master database and partitions them using modulo hashing to slave nodes',
+      'Receives partitioned users from central node and inserts them into fragment database',
   })
   @ApiResponse({
     status: 200,
-    description: 'Users fetched and distributed successfully',
-    type: [SyncResultDto],
+    description: 'Users successfully inserted',
+    schema: {
+      example: { count: 500 },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request body',
   })
   @ApiResponse({
     status: 500,
-    description: 'Failed to fetch or distribute users',
+    description: 'Internal server error',
   })
-  async fetchAndDistributeUsers(): Promise<SyncResult[]> {
-    this.logger.log('Received request to fetch and distribute users');
+  async bulkInsertUsers(
+    @Body() body: { users: User[] },
+  ): Promise<{ count: number }> {
+    try {
+      const { users } = body;
+
+      if (!Array.isArray(users) || users.length === 0) {
+        this.logger.warn('Received empty or invalid users array');
+        return { count: 0 };
+      }
+
+      this.logger.log(`Received ${users.length} users for bulk insert`);
+
+      // Insert users into database via service
+      const insertedCount = await this.syncService.bulkInsertUsers(users);
+
+      this.logger.log(`Successfully inserted ${insertedCount} users`);
+
+      return { count: insertedCount };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Bulk insert failed: ${errorMsg}`,
+        error instanceof Error ? error.stack : '',
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Trigger distribution from central node to fragments
+   * Should only be called on the CENTRAL node
+   */
+  @Post('distribute')
+  @ApiOperation({
+    summary:
+      'Distribute users from central to fragments. Run only once on fresh DB',
+    description:
+      'Central node fetches all users and distributes them to fragment nodes based on user_id parity',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Distribution completed',
+    schema: {
+      example: [
+        { nodeId: 'node2', success: true, recordsCount: 500 },
+        { nodeId: 'node3', success: true, recordsCount: 500 },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Only CENTRAL node can distribute',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+  })
+  async distributeUsers(): Promise<SyncResult[]> {
+    if (this.nodeRole !== 'CENTRAL') {
+      throw new Error('Distribution can only be called on CENTRAL node');
+    }
+
     return this.syncService.fetchAndDistributeUsers();
   }
 
-  @Post('bulk-insert')
-  @HttpCode(201)
+  /**
+   * Get partition statistics
+   */
+  @Get('stats')
   @ApiOperation({
-    summary: 'Bulk insert users',
-    description: 'Endpoint for slave nodes to receive partitioned data',
+    summary: 'Get partition statistics',
+    description:
+      'Returns information about how users are partitioned across nodes',
   })
   @ApiResponse({
-    status: 201,
-    description: 'Users inserted successfully',
-    type: BulkInsertResponseDto,
+    status: 200,
+    description: 'Partition statistics',
+    schema: {
+      example: {
+        evenNode: { id: 'node2', role: 'FRAGMENT', userCount: 500 },
+        oddNode: { id: 'node3', role: 'FRAGMENT', userCount: 500 },
+      },
+    },
   })
-  async bulkInsert(
-    @Body() dto: BulkInsertUsersDto,
-  ): Promise<BulkInsertResponseDto> {
-    this.logger.log(`Bulk insert received: ${dto.users.length} users`);
-    const count = await this.usersService.bulkInsertUsers(dto.users);
-    this.logger.log(`Successfully inserted ${count} users into local database`);
-    return { count };
+  getPartitionStats(): Record<string, unknown> {
+    const partitionService = this.syncService.getPartitionService();
+
+    return {
+      centralNode: partitionService.getCentralNode(),
+      fragmentNodes: partitionService.getFragmentNodes(),
+      partitionRule: 'user_id % 2 === 0 ? node2 : node3',
+    };
   }
 }
