@@ -141,17 +141,32 @@ export default function Home() {
         {/* Top Navigation Bar */}
         <div className="w-full max-w-3xl mb-8 flex items-center justify-between gap-4">
           <h1 className="text-4xl font-bold text-gray-900">Dashboard</h1>
-          <button
-            onClick={() => {
-              sessionStorage.clear();
-              window.location.href = "/login";
-            }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
-            aria-label="Logout"
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
+
+          <div className="flex gap-4">
+            <button
+              onClick={() => {
+                sessionStorage.clear();
+                window.location.href = "/demo";
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              aria-label="Demo Concurrency"
+            >
+              Concurrency
+            </button>
+
+            <button
+              onClick={() => {
+                sessionStorage.clear();
+                window.location.href = "/login";
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
+              aria-label="Logout"
+            >
+              <LogOut size={18} />
+              Logout
+            </button>
+          </div>
+
         </div>
 
         {/* Search Bar */}
