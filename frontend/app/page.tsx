@@ -145,7 +145,16 @@ export default function Home() {
           <div className="flex gap-4">
             <button
               onClick={() => {
-                sessionStorage.clear();
+                window.location.href = "/create";
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              aria-label="Demo Concurrency"
+            >
+              Create User
+            </button>
+
+            <button
+              onClick={() => {
                 window.location.href = "/demo";
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
