@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8" />
@@ -134,16 +134,17 @@
         <input id="gender" type="text" />
       </div>
       <p style="font-size: 11px; opacity: 0.7">
-        These fields are used for both simple inserts and scripted UPDATE/INSERT steps (if you don't override them in
-        the script).
+        These fields are used for both simple inserts and scripted UPDATE/INSERT
+        steps (if you don't override them in the script).
       </p>
     </fieldset>
 
     <fieldset>
       <legend>Simple Insert (auto-generated ID)</legend>
       <p style="font-size: 12px; opacity: 0.8">
-        Calls <code>/txn/insert-auto</code> on the selected node. The backend generates a new primary key, inserts
-        locally, then replicates according to your replication rules.
+        Calls <code>/txn/insert-auto</code> on the selected node. The backend
+        generates a new primary key, inserts locally, then replicates according
+        to your replication rules.
       </p>
 
       <div class="row">
@@ -185,8 +186,8 @@
       <p style="font-size: 12px; opacity: 0.8">
         Each script should be a JSON array of steps. Example:<br />
         <code>
-          [ { "type": "READ" }, { "type": "SLEEP", "delayMs": 1000 }, { "type": "UPDATE", "data": { "city": "NewCity" }
-          }, { "type": "READ" } ]
+          [ { "type": "READ" }, { "type": "SLEEP", "delayMs": 1000 }, { "type":
+          "UPDATE", "data": { "city": "NewCity" } }, { "type": "READ" } ]
         </code>
       </p>
 
@@ -246,9 +247,9 @@
     <script>
       // 🔧 CONFIG: adjust these URLs to match your Docker/setup
       const NODES = {
-        central: "http://localhost:3001", // central node (full copy)
-        node2: "http://localhost:3002", // fragment
-        node3: "http://localhost:3003", // fragment (if used),
+        central: "http://localhost:3010", // central node (full copy)
+        node2: "http://localhost:3011", // fragment
+        node3: "http://localhost:3012", // fragment (if used),
       };
 
       const logEl = document.getElementById("log");
@@ -316,7 +317,10 @@
 
       // 🔁 Run recovery on all nodes sequentially
       async function runRecoveryAll() {
-        log("--- Running recovery on all nodes (central → node2 → node3) ---", "log-header");
+        log(
+          "--- Running recovery on all nodes (central → node2 → node3) ---",
+          "log-header"
+        );
 
         const nodes = [
           { key: "central", url: NODES.central },
@@ -328,8 +332,16 @@
           log(`Calling ${key} /recovery/run`, "log-header");
           try {
             const res = await postJson(`${url}/recovery/run`, {});
-            const cls = key === "central" ? "log-node-central" : key === "node2" ? "log-node-node2" : "log-node-node3";
-            log(`${key} /recovery/run → ${res.status}\n${pretty(res.body)}`, cls);
+            const cls =
+              key === "central"
+                ? "log-node-central"
+                : key === "node2"
+                ? "log-node-node2"
+                : "log-node-node3";
+            log(
+              `${key} /recovery/run → ${res.status}\n${pretty(res.body)}`,
+              cls
+            );
           } catch (e) {
             log(`${key} /recovery/run ERROR: ${e}`, "log-header");
           }
@@ -343,7 +355,8 @@
         const isolation = getIsolation();
         const fields = getUpdateFields();
         const simCheckboxId = `${nodeKey}InsertSimError`;
-        const simReplicationError = document.getElementById(simCheckboxId)?.checked || false;
+        const simReplicationError =
+          document.getElementById(simCheckboxId)?.checked || false;
 
         const body = {
           isolation,
@@ -358,14 +371,24 @@
         const res = await postJson(`${nodeUrl}/txn/insert-auto`, body);
 
         const cls =
-          nodeKey === "central" ? "log-node-central" : nodeKey === "node2" ? "log-node-node2" : "log-node-node3";
+          nodeKey === "central"
+            ? "log-node-central"
+            : nodeKey === "node2"
+            ? "log-node-node2"
+            : "log-node-node3";
 
-        log(`${nodeKey} /txn/insert-auto → ${res.status}\n${pretty(res.body)}`, cls);
+        log(
+          `${nodeKey} /txn/insert-auto → ${res.status}\n${pretty(res.body)}`,
+          cls
+        );
       }
 
       // 🟢 Case 1: all nodes do READ on same userId concurrently (using /txn/local)
       async function runCase1() {
-        log("--- Case 1: concurrent READs on central, node2, node3 ---", "log-header");
+        log(
+          "--- Case 1: concurrent READs on central, node2, node3 ---",
+          "log-header"
+        );
 
         const isolation = getIsolation();
         const userId = getUserId();
@@ -376,7 +399,9 @@
           userId,
         };
 
-        log(`Sending READ to all nodes with isolation="${isolation}", userId=${userId}`);
+        log(
+          `Sending READ to all nodes with isolation="${isolation}", userId=${userId}`
+        );
 
         const [c, n2, n3] = await Promise.all([
           postJson(`${NODES.central}/txn/local`, body),
@@ -384,14 +409,26 @@
           postJson(`${NODES.node3}/txn/local`, body),
         ]);
 
-        log(`central /txn/local → ${c.status}\n${pretty(c.body)}`, "log-node-central");
-        log(`node2   /txn/local → ${n2.status}\n${pretty(n2.body)}`, "log-node-node2");
-        log(`node3   /txn/local → ${n3.status}\n${pretty(n3.body)}`, "log-node-node3");
+        log(
+          `central /txn/local → ${c.status}\n${pretty(c.body)}`,
+          "log-node-central"
+        );
+        log(
+          `node2   /txn/local → ${n2.status}\n${pretty(n2.body)}`,
+          "log-node-node2"
+        );
+        log(
+          `node3   /txn/local → ${n3.status}\n${pretty(n3.body)}`,
+          "log-node-node3"
+        );
       }
 
       // 🟡 Case 2: central does UPDATE while node2 does READ (using /txn/local)
       async function runCase2() {
-        log("--- Case 2: central UPDATE + node2 READ concurrently ---", "log-header");
+        log(
+          "--- Case 2: central UPDATE + node2 READ concurrently ---",
+          "log-header"
+        );
 
         const isolation = getIsolation();
         const userId = getUserId();
@@ -410,20 +447,33 @@
           userId,
         };
 
-        log(`central UPDATE + node2 READ, isolation="${isolation}", userId=${userId}, updateFields=${pretty(fields)}`);
+        log(
+          `central UPDATE + node2 READ, isolation="${isolation}", userId=${userId}, updateFields=${pretty(
+            fields
+          )}`
+        );
 
         const [c, n2] = await Promise.all([
           postJson(`${NODES.central}/txn/local`, updateBody),
           postJson(`${NODES.node2}/txn/local`, readBody),
         ]);
 
-        log(`central UPDATE → ${c.status}\n${pretty(c.body)}`, "log-node-central");
-        log(`node2   READ   → ${n2.status}\n${pretty(n2.body)}`, "log-node-node2");
+        log(
+          `central UPDATE → ${c.status}\n${pretty(c.body)}`,
+          "log-node-central"
+        );
+        log(
+          `node2   READ   → ${n2.status}\n${pretty(n2.body)}`,
+          "log-node-node2"
+        );
       }
 
       // 🔴 Case 3: central + node2 do UPDATE concurrently (write-write)
       async function runCase3() {
-        log("--- Case 3: concurrent WRITEs on central + node2 ---", "log-header");
+        log(
+          "--- Case 3: concurrent WRITEs on central + node2 ---",
+          "log-header"
+        );
 
         const isolation = getIsolation();
         const userId = getUserId();
@@ -445,15 +495,23 @@
           city: `FromNode2-${Date.now()}`,
         };
 
-        log(`central + node2 both UPDATE userId=${userId} with different city values, isolation="${isolation}"`);
+        log(
+          `central + node2 both UPDATE userId=${userId} with different city values, isolation="${isolation}"`
+        );
 
         const [c, n2] = await Promise.all([
           postJson(`${NODES.central}/txn/local`, bodyCentral),
           postJson(`${NODES.node2}/txn/local`, bodyNode2),
         ]);
 
-        log(`central UPDATE → ${c.status}\n${pretty(c.body)}`, "log-node-central");
-        log(`node2   UPDATE → ${n2.status}\n${pretty(n2.body)}`, "log-node-node2");
+        log(
+          `central UPDATE → ${c.status}\n${pretty(c.body)}`,
+          "log-node-central"
+        );
+        log(
+          `node2   UPDATE → ${n2.status}\n${pretty(n2.body)}`,
+          "log-node-node2"
+        );
 
         // Read back final values to show convergence
         const readBody = {
@@ -468,22 +526,38 @@
         ]);
 
         log("After concurrent WRITEs, final READs:", "log-header");
-        log(`central READ → ${cR.status}\n${pretty(cR.body)}`, "log-node-central");
-        log(`node2   READ → ${n2R.status}\n${pretty(n2R.body)}`, "log-node-node2");
+        log(
+          `central READ → ${cR.status}\n${pretty(cR.body)}`,
+          "log-node-central"
+        );
+        log(
+          `node2   READ → ${n2R.status}\n${pretty(n2R.body)}`,
+          "log-node-node2"
+        );
       }
 
       // ⚙️ Scripted runner: calls /txn/scripted on any node that has a script
       async function runScriptedAll() {
-        log("--- Custom SCRIPTED txns on central / node2 / node3 ---", "log-header");
+        log(
+          "--- Custom SCRIPTED txns on central / node2 / node3 ---",
+          "log-header"
+        );
 
         const isolation = getIsolation();
         const userId = getUserId();
 
-        const scriptCentralText = document.getElementById("script-central").value.trim();
-        const scriptNode2Text = document.getElementById("script-node2").value.trim();
-        const scriptNode3Text = document.getElementById("script-node3").value.trim();
+        const scriptCentralText = document
+          .getElementById("script-central")
+          .value.trim();
+        const scriptNode2Text = document
+          .getElementById("script-node2")
+          .value.trim();
+        const scriptNode3Text = document
+          .getElementById("script-node3")
+          .value.trim();
 
-        const centralSimError = document.getElementById("centralSimError").checked;
+        const centralSimError =
+          document.getElementById("centralSimError").checked;
         const node2SimError = document.getElementById("node2SimError").checked;
         const node3SimError = document.getElementById("node3SimError").checked;
 
@@ -494,7 +568,10 @@
           try {
             const parsed = JSON.parse(txt);
             if (!Array.isArray(parsed)) {
-              log(`${label}: script must be a JSON array of steps`, "log-header");
+              log(
+                `${label}: script must be a JSON array of steps`,
+                "log-header"
+              );
               return null;
             }
             return parsed;
@@ -561,8 +638,16 @@
         const results = await Promise.all(tasks);
 
         for (const { node, res } of results) {
-          const cls = node === "central" ? "log-node-central" : node === "node2" ? "log-node-node2" : "log-node-node3";
-          log(`${node} /txn/scripted → ${res.status}\n${pretty(res.body)}`, cls);
+          const cls =
+            node === "central"
+              ? "log-node-central"
+              : node === "node2"
+              ? "log-node-node2"
+              : "log-node-node3";
+          log(
+            `${node} /txn/scripted → ${res.status}\n${pretty(res.body)}`,
+            cls
+          );
         }
       }
     </script>

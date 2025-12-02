@@ -15,7 +15,7 @@ import {
 import { ReplicationStatus } from 'src/enums/replication-status';
 
 const NODE_NAME = process.env.NODE_NAME ?? 'node1';
-const CENTRAL_URL = process.env.CENTRAL_URL ?? 'http://node1:4000';
+const CENTRAL_URL = process.env.CENTRAL_URL ?? 'http://node1:3000';
 
 type Db = NodePgDatabase<typeof schema>;
 
@@ -68,7 +68,10 @@ export class RecoveryService {
       };
 
       const baseUrl =
-        targetNode === 'node1' ? CENTRAL_URL : `http://${targetNode}:4000`;
+        targetNode === 'node1'
+          ? CENTRAL_URL
+          : (process.env[`${targetNode.toUpperCase()}_URL`] ??
+            `http://${targetNode}:3000`);
 
       let status: ReplicationStatus = ReplicationStatus.PENDING;
       let appliedOnTarget = false;
