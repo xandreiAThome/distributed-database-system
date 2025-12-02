@@ -1,5 +1,5 @@
 // src/replication/replication.service.ts
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { sql, eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -15,7 +15,13 @@ const NODE_ROLE =
 
 @Injectable()
 export class ReplicationService {
-  constructor(@Inject('DatabaseAsyncProvider') private readonly db: Db) {}
+  private logger = new Logger('ReplicationService');
+
+  constructor(@Inject('DatabaseAsyncProvider') private readonly db: Db) {
+    this.logger.log(
+      `[ReplicationService] Initialized on NODE_NAME=${NODE_NAME}, NODE_ROLE=${NODE_ROLE}`,
+    );
+  }
 
   private shouldApplyIncoming(
     currentUpdatedAt: Date | null,
@@ -93,6 +99,15 @@ export class ReplicationService {
       data;
     const incomingUpdatedAt = new Date(payload.updatedAt);
 
+    this.logger.log(`[applyIncomingReplication] Received replication:`, {
+      globalTxId,
+      operation,
+      userPk,
+      sourceNode,
+      incomingUpdatedAt,
+      isolation,
+    });
+
     //  skip if already applied
     const already = await this.db
       .select()
@@ -100,6 +115,10 @@ export class ReplicationService {
       .where(eq(schema.appliedIncoming.globalTxId, globalTxId));
 
     if (already.length > 0) {
+      this.logger.log(
+        `[applyIncomingReplication] Skipping (already applied):`,
+        { globalTxId },
+      );
       return { applied: false, skipped: true, reason: 'already_applied' };
     }
 
@@ -121,11 +140,23 @@ export class ReplicationService {
         ? (currentRow.updatedAt as Date)
         : null;
 
+      this.logger.debug(`[applyIncomingReplication] Current state:`, {
+        globalTxId,
+        userPk,
+        currentUpdatedAt,
+        incomingUpdatedAt,
+      });
+
       const shouldApply = this.shouldApplyIncoming(
         currentUpdatedAt,
         incomingUpdatedAt,
         sourceNode,
       );
+
+      this.logger.debug(`[applyIncomingReplication] Decision:`, {
+        globalTxId,
+        shouldApply,
+      });
 
       if (!shouldApply) {
         appliedFlag = false;
@@ -134,13 +165,21 @@ export class ReplicationService {
             ? 'older_timestamp'
             : 'tie_kept_local_or_central';
 
+        this.logger.log(
+          `[applyIncomingReplication] NOT applying (${reason}):`,
+          { globalTxId },
+        );
+
         await tx.insert(schema.appliedIncoming).values({
           globalTxId,
         });
         return;
       }
 
-      // --- apply INSERT / UPDATE / DELETE via Drizzle ---
+      this.logger.log(
+        `[applyIncomingReplication] Applying ${operation} for user ${userPk}:`,
+        { globalTxId },
+      );
 
       if (operation === RepOperationType.UPSERT) {
         if (!currentRow) {
@@ -200,6 +239,12 @@ export class ReplicationService {
 
       appliedFlag = true;
       reason = 'newer_or_tie_accept';
+    });
+
+    this.logger.log(`[applyIncomingReplication] Result:`, {
+      globalTxId,
+      applied: appliedFlag,
+      reason,
     });
 
     return {
