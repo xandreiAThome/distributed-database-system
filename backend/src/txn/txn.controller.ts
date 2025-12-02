@@ -10,6 +10,14 @@ export class TxnController {
 
   @Post('scripted')
   async runScripted(@Body() body: ScriptedTxnDto) {
+    if (
+      (process.env.NODE_NAME === process.env.EVEN_NODE &&
+        body.userId % 2 !== 0) ||
+      (process.env.NODE_NAME === process.env.ODD_NODE && body.userId % 2 !== 1)
+    ) {
+      return { skipped: true, reason: 'user_not_in_fragment' };
+    }
+
     return this.txnService.runScriptedTxn(body);
   }
 
