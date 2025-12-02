@@ -68,7 +68,10 @@ export class RecoveryService {
       };
 
       const baseUrl =
-        targetNode === 'node1' ? CENTRAL_URL : `http://${targetNode}:3000`;
+        targetNode === 'node1'
+          ? CENTRAL_URL
+          : (process.env[`${targetNode.toUpperCase()}_URL`] ??
+            `http://${targetNode}:3000`);
 
       let status: ReplicationStatus = ReplicationStatus.PENDING;
       let appliedOnTarget = false;
