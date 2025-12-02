@@ -9,17 +9,21 @@ import { RepOperationType } from '../enums/operation-type';
 
 type Db = NodePgDatabase<typeof schema>;
 
-const NODE_NAME = process.env.NODE_NAME ?? 'UNKNOWN';
-const NODE_ROLE =
-  (process.env.NODE_ROLE as 'CENTRAL' | 'FRAGMENT') ?? 'FRAGMENT';
+function getReplicationConfig() {
+  return {
+    NODE_NAME: process.env.NODE_NAME ?? 'UNKNOWN',
+    NODE_ROLE: (process.env.NODE_ROLE as 'CENTRAL' | 'FRAGMENT') ?? 'FRAGMENT',
+  };
+}
 
 @Injectable()
 export class ReplicationService {
   private logger = new Logger('ReplicationService');
 
   constructor(@Inject('DatabaseAsyncProvider') private readonly db: Db) {
+    const config = getReplicationConfig();
     this.logger.log(
-      `[ReplicationService] Initialized on NODE_NAME=${NODE_NAME}, NODE_ROLE=${NODE_ROLE}`,
+      `[ReplicationService] Initialized on NODE_NAME=${config.NODE_NAME}, NODE_ROLE=${config.NODE_ROLE}`,
     );
   }
 
@@ -28,8 +32,9 @@ export class ReplicationService {
     incomingUpdatedAt: Date,
     sourceNode: string,
   ): boolean {
-    const thisNodeName = NODE_NAME;
-    const thisNodeRole = NODE_ROLE;
+    const config = getReplicationConfig();
+    const thisNodeName = config.NODE_NAME;
+    const thisNodeRole = config.NODE_ROLE;
 
     // If no current value, always apply
     if (!currentUpdatedAt) return true;

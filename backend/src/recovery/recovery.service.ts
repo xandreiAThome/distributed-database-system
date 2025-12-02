@@ -14,8 +14,12 @@ import {
 } from './interfaces/recovery-result';
 import { ReplicationStatus } from 'src/enums/replication-status';
 
-const NODE_NAME = process.env.NODE_NAME ?? 'node1';
-const CENTRAL_URL = process.env.CENTRAL_URL ?? 'http://node1:3000';
+function getRecoveryConfig() {
+  return {
+    NODE_NAME: process.env.NODE_NAME ?? 'node1',
+    CENTRAL_URL: process.env.CENTRAL_URL ?? 'http://node1:3000',
+  };
+}
 
 type Db = NodePgDatabase<typeof schema>;
 
@@ -36,13 +40,14 @@ export class RecoveryService {
    * - or from a cron job if you want
    */
   async replayPendingOutgoing(limit = 100): Promise<RecoveryResult> {
+    const config = getRecoveryConfig();
     // 1) fetch all PENDING outgoing logs for this source node
     const pending = await this.db
       .select()
       .from(schema.replicationLog)
       .where(
         and(
-          eq(schema.replicationLog.sourceNode, NODE_NAME),
+          eq(schema.replicationLog.sourceNode, config.NODE_NAME),
           eq(schema.replicationLog.status, 'PENDING'),
         ),
       )
@@ -69,7 +74,7 @@ export class RecoveryService {
 
       const baseUrl =
         targetNode === 'node1'
-          ? CENTRAL_URL
+          ? getRecoveryConfig().CENTRAL_URL
           : (process.env[`${targetNode.toUpperCase()}_URL`] ??
             `http://${targetNode}:3000`);
 
@@ -120,7 +125,7 @@ export class RecoveryService {
     const failed = details.filter((d) => d.status === 'FAILED').length;
 
     return {
-      sourceNode: NODE_NAME,
+      sourceNode: getRecoveryConfig().NODE_NAME,
       totalPending: pending.length,
       attempted: details.length,
       succeeded,

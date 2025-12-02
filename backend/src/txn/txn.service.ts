@@ -15,32 +15,16 @@ import { InsertTxnDto } from './dto/insert-txn.dto';
 import { RepOperationType } from 'src/enums/operation-type';
 import type { User } from '../../db-schema/user';
 
-const NODE_NAME = process.env.NODE_NAME ?? 'node1';
-const CENTRAL_URL = process.env.CENTRAL_URL ?? 'http://node1:3000';
-const ROLE = (process.env.NODE_ROLE as 'CENTRAL' | 'FRAGMENT') ?? 'FRAGMENT';
-const EVEN_NODE = process.env.EVEN_NODE ?? 'node2';
-const ODD_NODE = process.env.ODD_NODE ?? 'node3';
-
-// Debug logging for environment variables
-console.log('[TxnService] Environment Variables at Startup:');
-console.log('[TxnService] NODE_NAME:', NODE_NAME);
-console.log('[TxnService] NODE_ROLE:', ROLE);
-console.log('[TxnService] CENTRAL_URL:', CENTRAL_URL);
-console.log('[TxnService] NODE2_URL:', process.env.NODE2_URL);
-console.log('[TxnService] NODE3_URL:', process.env.NODE3_URL);
-console.log('[TxnService] EVEN_NODE:', EVEN_NODE);
-console.log('[TxnService] ODD_NODE:', ODD_NODE);
-console.log(
-  '[TxnService] DATABASE_URL:',
-  process.env.DATABASE_URL ? '***SET***' : 'NOT SET',
-);
-console.log(
-  '[TxnService] Full env keys:',
-  Object.keys(process.env).filter(
-    (k) =>
-      k.includes('NODE') || k.includes('CENTRAL') || k.includes('DATABASE'),
-  ),
-);
+// Get NODE configuration - these need to be read at runtime, not at module load time
+function getNodeConfig() {
+  return {
+    NODE_NAME: process.env.NODE_NAME ?? 'node1',
+    CENTRAL_URL: process.env.CENTRAL_URL ?? 'http://node1:3000',
+    ROLE: (process.env.NODE_ROLE as 'CENTRAL' | 'FRAGMENT') ?? 'FRAGMENT',
+    EVEN_NODE: process.env.EVEN_NODE ?? 'node2',
+    ODD_NODE: process.env.ODD_NODE ?? 'node3',
+  };
+}
 
 type Db = NodePgDatabase<typeof schema>;
 
@@ -55,7 +39,8 @@ export class TxnService {
 
   // IF WE TREAT CENTRAL AS THE ONLY NODE THAT CAN GENERATE PKs
   async allocateUserId(): Promise<{ userId: number }> {
-    if (ROLE !== 'CENTRAL') {
+    const config = getNodeConfig();
+    if (config.ROLE !== 'CENTRAL') {
       throw new Error('ID allocation is only allowed on the central node');
     }
 
@@ -73,6 +58,7 @@ export class TxnService {
 
   // IF EACH NODE CAN GENERATE THEIR OWN PKs
   private async generateNewUserId(): Promise<number> {
+    const config = getNodeConfig();
     const rows = await this.db
       .select({
         maxId: sql<number>`COALESCE(MAX(${schema.users.user_id}), 0)`,
@@ -83,16 +69,16 @@ export class TxnService {
     const newId = maxId + 1;
 
     // Central: simple max + 1
-    if (ROLE === 'CENTRAL') {
+    if (config.ROLE === 'CENTRAL') {
       return newId;
     }
 
     // Fragment nodes: parity-based sequences
-    if (NODE_NAME === EVEN_NODE) {
+    if (config.NODE_NAME === config.EVEN_NODE) {
       return newId % 2 === 0 ? newId : newId + 1;
     }
 
-    if (NODE_NAME === ODD_NODE) {
+    if (config.NODE_NAME === config.ODD_NODE) {
       return newId % 2 === 1 ? newId : newId + 1;
     }
 
@@ -100,14 +86,15 @@ export class TxnService {
   }
 
   private chooseTargetNode(userId: number): string | null {
+    const config = getNodeConfig();
     // Fragment nodes always replicate "up" to central
-    if (ROLE === 'FRAGMENT') {
+    if (config.ROLE === 'FRAGMENT') {
       return 'node1';
     }
 
     // Central decides fragment based on modulo rule
-    if (ROLE === 'CENTRAL') {
-      return userId % 2 === 0 ? EVEN_NODE : ODD_NODE;
+    if (config.ROLE === 'CENTRAL') {
+      return userId % 2 === 0 ? config.EVEN_NODE : config.ODD_NODE;
     }
 
     return null;
@@ -308,7 +295,7 @@ export class TxnService {
 
         localReplicationDto = {
           globalTxId,
-          sourceNode: NODE_NAME,
+          sourceNode: getNodeConfig().NODE_NAME,
           targetNode,
           operation: isDelete
             ? RepOperationType.DELETE
@@ -342,7 +329,7 @@ export class TxnService {
     if (replicationDto) {
       const baseUrl =
         replicationDto.targetNode === 'node1'
-          ? CENTRAL_URL
+          ? getNodeConfig().CENTRAL_URL
           : process.env[`${replicationDto.targetNode.toUpperCase()}_URL`];
 
       if (!baseUrl) {
@@ -403,9 +390,10 @@ export class TxnService {
       .from(schema.users)
       .where(eq(schema.users.user_id, userId));
 
+    const config = getNodeConfig();
     const trace: LocalTxnTrace = {
-      node: NODE_NAME,
-      role: ROLE,
+      node: config.NODE_NAME,
+      role: config.ROLE,
       isolation,
       operation: 'SCRIPTED',
       userId,
@@ -492,7 +480,7 @@ export class TxnService {
 
         localReplicationDto = {
           globalTxId,
-          sourceNode: NODE_NAME,
+          sourceNode: getNodeConfig().NODE_NAME,
           targetNode,
           operation: RepOperationType.UPSERT, // new row, let applyIncoming handle upsert/timestamp conflict
           userPk: userId,
@@ -524,7 +512,7 @@ export class TxnService {
     if (replicationDto) {
       const baseUrl =
         replicationDto.targetNode === 'node1'
-          ? CENTRAL_URL
+          ? getNodeConfig().CENTRAL_URL
           : process.env[`${replicationDto.targetNode.toUpperCase()}_URL`];
 
       if (!baseUrl) {
@@ -586,9 +574,10 @@ export class TxnService {
       .from(schema.users)
       .where(eq(schema.users.user_id, userId));
 
+    const config = getNodeConfig();
     const trace: LocalTxnTrace = {
-      node: NODE_NAME,
-      role: ROLE,
+      node: config.NODE_NAME,
+      role: config.ROLE,
       isolation,
       operation: 'INSERT',
       userId,
@@ -610,13 +599,13 @@ export class TxnService {
     // 1) Get a new userId
     let userId: number;
 
-    if (ROLE === 'CENTRAL') {
+    if (getNodeConfig().ROLE === 'CENTRAL') {
       // generate locally
       const res = await this.allocateUserId();
       userId = res.userId;
     } else {
       // fragment → ask central
-      const res = await fetch(`${CENTRAL_URL}/txn/id/allocate`, {
+      const res = await fetch(`${getNodeConfig().CENTRAL_URL}/txn/id/allocate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -629,11 +618,11 @@ export class TxnService {
       const json = await res.json();
       userId = json.userId;
 
-      if (NODE_NAME === 'node2' && userId % 2 === 1) {
+      if (getNodeConfig().NODE_NAME === 'node2' && userId % 2 === 1) {
         userId += 1; // bump to next even number
       }
 
-      if (NODE_NAME === 'node3' && userId % 2 === 0) {
+      if (getNodeConfig().NODE_NAME === 'node3' && userId % 2 === 0) {
         userId += 1; // bump to next odd number
       }
     }
@@ -703,7 +692,7 @@ export class TxnService {
 
         localReplicationDto = {
           globalTxId,
-          sourceNode: NODE_NAME,
+          sourceNode: getNodeConfig().NODE_NAME,
           targetNode,
           operation: 'UPSERT', // new row, let applyIncoming handle upsert/timestamp conflict
           userPk: userId,
@@ -735,7 +724,7 @@ export class TxnService {
     if (replicationDto) {
       const baseUrl =
         replicationDto.targetNode === 'node1'
-          ? CENTRAL_URL
+          ? getNodeConfig().CENTRAL_URL
           : process.env[`${replicationDto.targetNode.toUpperCase()}_URL`];
 
       if (!baseUrl) {
@@ -797,9 +786,10 @@ export class TxnService {
       .from(schema.users)
       .where(eq(schema.users.user_id, userId));
 
+    const config = getNodeConfig();
     const trace: LocalTxnTrace = {
-      node: NODE_NAME,
-      role: ROLE,
+      node: config.NODE_NAME,
+      role: config.ROLE,
       isolation,
       operation: 'INSERT',
       userId,
