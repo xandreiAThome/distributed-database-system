@@ -167,7 +167,7 @@ export default function App() {
     const body = {
       isolation,
       simReplicationError: simErrors[simKey],
-      userId: Number(userId),
+      // userId: Number(userId),
       ...filteredData
     };
 
