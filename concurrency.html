@@ -315,6 +315,21 @@
         return { status: res.status, body: parsed };
       }
 
+      function baseUrlForKey(nodeKey) {
+        if (nodeKey === "central") return NODES.central;
+        if (nodeKey === "node2") return NODES.node2;
+        if (nodeKey === "node3") return NODES.node3;
+        return null;
+      }
+
+      function baseUrlForNodeName(nodeName) {
+        // nodeName is like "node1", "node2", "node3" from replicationDto
+        if (nodeName === "node1") return NODES.central;
+        if (nodeName === "node2") return NODES.node2;
+        if (nodeName === "node3") return NODES.node3;
+        return null;
+      }
+
       // 🔁 Run recovery on all nodes sequentially
       async function runRecoveryAll() {
         log(
@@ -350,13 +365,19 @@
         log("--- Recovery finished ---", "log-header");
       }
 
-      // Simple insert with auto-id on any node
+      // ====== INSERT FLOW: /txn/insert-auto → /replication/apply → /replication/mark-outgoing ======
       async function insertOnNode(nodeKey) {
         const isolation = getIsolation();
         const fields = getUpdateFields();
         const simCheckboxId = `${nodeKey}InsertSimError`;
         const simReplicationError =
           document.getElementById(simCheckboxId)?.checked || false;
+
+        const sourceUrl = baseUrlForKey(nodeKey);
+        if (!sourceUrl) {
+          log(`Unknown source node key: ${nodeKey}`, "log-header");
+          return;
+        }
 
         const body = {
           isolation,
@@ -366,9 +387,7 @@
 
         log(`${nodeKey} /txn/insert-auto ← ${pretty(body)}`, "log-header");
 
-        const nodeUrl = nodeKey === "central" ? NODES.central : NODES[nodeKey];
-
-        const res = await postJson(`${nodeUrl}/txn/insert-auto`, body);
+        const txRes = await postJson(`${sourceUrl}/txn/insert-auto`, body);
 
         const cls =
           nodeKey === "central"
@@ -453,10 +472,11 @@
           )}`
         );
 
-        const [c, n2] = await Promise.all([
-          postJson(`${NODES.central}/txn/local`, updateBody),
-          postJson(`${NODES.node2}/txn/local`, readBody),
-        ]);
+        const targetUrl = baseUrlForNodeName(replicationDto.targetNode);
+        if (!targetUrl) {
+          log(`Unknown target node in replicationDto: ${replicationDto.targetNode}`, "log-header");
+          return;
+        }
 
         log(
           `central UPDATE → ${c.status}\n${pretty(c.body)}`,
@@ -477,32 +497,22 @@
 
         const isolation = getIsolation();
         const userId = getUserId();
-        const fields = getUpdateFields();
+        const sourceUrl = baseUrlForKey(nodeKey);
+        if (!sourceUrl) {
+          log(`Unknown node key: ${nodeKey}`, "log-header");
+          return;
+        }
 
-        const bodyCentral = {
-          isolation,
-          operation: "UPDATE",
-          userId,
-          ...fields,
-          city: `FromCentral-${Date.now()}`,
-        };
+        const body = { isolation, userId, steps, simReplicationError };
 
-        const bodyNode2 = {
-          isolation,
-          operation: "UPDATE",
-          userId,
-          ...fields,
-          city: `FromNode2-${Date.now()}`,
-        };
+        log(`${nodeKey} /txn/scripted ← ${pretty(body)}`, "log-header");
 
         log(
           `central + node2 both UPDATE userId=${userId} with different city values, isolation="${isolation}"`
         );
 
-        const [c, n2] = await Promise.all([
-          postJson(`${NODES.central}/txn/local`, bodyCentral),
-          postJson(`${NODES.node2}/txn/local`, bodyNode2),
-        ]);
+        const cls =
+          nodeKey === "central" ? "log-node-central" : nodeKey === "node2" ? "log-node-node2" : "log-node-node3";
 
         log(
           `central UPDATE → ${c.status}\n${pretty(c.body)}`,
@@ -513,17 +523,17 @@
           "log-node-node2"
         );
 
-        // Read back final values to show convergence
-        const readBody = {
-          isolation,
-          operation: "READ",
-          userId,
-        };
+        const replicationDto = txRes.body?.replicationDto;
+        if (!replicationDto) {
+          log(`${nodeKey}: no replicationDto returned (no mutation or no target).`, "log-header");
+          return;
+        }
 
-        const [cR, n2R] = await Promise.all([
-          postJson(`${NODES.central}/txn/local`, readBody),
-          postJson(`${NODES.node2}/txn/local`, readBody),
-        ]);
+        const targetUrl = baseUrlForNodeName(replicationDto.targetNode);
+        if (!targetUrl) {
+          log(`Unknown target node in replicationDto: ${replicationDto.targetNode}`, "log-header");
+          return;
+        }
 
         log("After concurrent WRITEs, final READs:", "log-header");
         log(
@@ -536,7 +546,7 @@
         );
       }
 
-      // ⚙️ Scripted runner: calls /txn/scripted on any node that has a script
+      // ⚙️ Scripted runner: calls /txn/scripted + replication chain on any node that has a script
       async function runScriptedAll() {
         log(
           "--- Custom SCRIPTED txns on central / node2 / node3 ---",
@@ -586,48 +596,13 @@
         const node3Steps = parseSteps(scriptNode3Text, "node3");
 
         if (centralSteps) {
-          const body = {
-            isolation,
-            userId,
-            steps: centralSteps,
-            simReplicationError: centralSimError,
-          };
-          tasks.push(
-            postJson(`${NODES.central}/txn/scripted`, body).then((res) => ({
-              node: "central",
-              res,
-            }))
-          );
+          tasks.push(runScriptedChain("central", centralSteps, centralSimError));
         }
-
         if (node2Steps) {
-          const body = {
-            isolation,
-            userId,
-            steps: node2Steps,
-            simReplicationError: node2SimError,
-          };
-          tasks.push(
-            postJson(`${NODES.node2}/txn/scripted`, body).then((res) => ({
-              node: "node2",
-              res,
-            }))
-          );
+          tasks.push(runScriptedChain("node2", node2Steps, node2SimError));
         }
-
         if (node3Steps) {
-          const body = {
-            isolation,
-            userId,
-            steps: node3Steps,
-            simReplicationError: node3SimError,
-          };
-          tasks.push(
-            postJson(`${NODES.node3}/txn/scripted`, body).then((res) => ({
-              node: "node3",
-              res,
-            }))
-          );
+          tasks.push(runScriptedChain("node3", node3Steps, node3SimError));
         }
 
         if (tasks.length === 0) {
