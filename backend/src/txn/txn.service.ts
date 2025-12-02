@@ -322,8 +322,13 @@ export class TxnService {
       const baseUrl =
         replicationDto.targetNode === 'node1'
           ? CENTRAL_URL
-          : (process.env[`${replicationDto.targetNode.toUpperCase()}_URL`] ??
-            `http://${replicationDto.targetNode}:3000`);
+          : process.env[`${replicationDto.targetNode.toUpperCase()}_URL`];
+
+      if (!baseUrl) {
+        throw new Error(
+          `Missing environment variable for target node: ${replicationDto.targetNode.toUpperCase()}_URL`,
+        );
+      }
 
       let status: ReplicationStatus = 'PENDING';
       let appliedOnTarget = false;
@@ -499,8 +504,13 @@ export class TxnService {
       const baseUrl =
         replicationDto.targetNode === 'node1'
           ? CENTRAL_URL
-          : (process.env[`${replicationDto.targetNode.toUpperCase()}_URL`] ??
-            `http://${replicationDto.targetNode}:3000`);
+          : process.env[`${replicationDto.targetNode.toUpperCase()}_URL`];
+
+      if (!baseUrl) {
+        throw new Error(
+          `Missing environment variable for target node: ${replicationDto.targetNode.toUpperCase()}_URL`,
+        );
+      }
 
       let status: ReplicationStatus = 'PENDING';
       let appliedOnTarget = false;
@@ -705,7 +715,13 @@ export class TxnService {
       const baseUrl =
         replicationDto.targetNode === 'node1'
           ? CENTRAL_URL
-          : `http://${replicationDto.targetNode}:4000`;
+          : process.env[`${replicationDto.targetNode.toUpperCase()}_URL`];
+
+      if (!baseUrl) {
+        throw new Error(
+          `Missing environment variable for target node: ${replicationDto.targetNode.toUpperCase()}_URL`,
+        );
+      }
 
       let status: ReplicationStatus = 'PENDING';
       let appliedOnTarget = false;
