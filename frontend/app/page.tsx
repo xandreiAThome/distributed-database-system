@@ -24,8 +24,6 @@ export default function Home() {
   // Search state (redirects to /search on Enter)
   const [search, setSearch] = useState("");
 
-  const [showMenu, setShowMenu] = useState(false);
-
   // Edit modal & form states
   const [isEditing, setIsEditing] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -55,7 +53,6 @@ export default function Home() {
 
   // Prefill form when opening editor
   function openEditor() {
-    setShowMenu(false);
     if (!userInfo) return;
     setForm({
       username: userInfo.username ?? "",
@@ -140,117 +137,146 @@ export default function Home() {
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-100">
-        <div className="w-full max-w-2xl bg-white shadow-xl rounded-xl p-8 space-y-6">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <button
-              onClick={() => {
-                sessionStorage.clear();
-                window.location.href = "/login";
-              }}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm transition-colors"
-              aria-label="Logout"
-            >
-              <LogOut size={16} />
-              Logout
-            </button>
-          </div>
+      <div className="min-h-screen flex flex-col items-center p-8 bg-gray-50">
+        {/* Top Navigation Bar */}
+        <div className="w-full max-w-3xl mb-8 flex items-center justify-between gap-4">
+          <h1 className="text-4xl font-bold text-gray-900">Dashboard</h1>
+          <button
+            onClick={() => {
+              sessionStorage.clear();
+              window.location.href = "/login";
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
+            aria-label="Logout"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
 
-          {/* Search Bar with Navigation (press Enter to redirect to /search?query=...) */}
-          <div className="flex gap-2 mt-4">
-            <Input
-              placeholder="Search..."
-              className="flex-1"
-              value={search}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setSearch(e.target.value)
-              }
-              onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                if (e.key === "Enter") {
-                  const q = String(search ?? "").trim();
-                  if (q.length === 0) return;
-                  router.push(`/search?query=${encodeURIComponent(q)}`);
-                }
-              }}
-            />
-            <button
-              onClick={() => {
+        {/* Search Bar */}
+        <div className="w-full max-w-3xl mb-8 flex gap-2">
+          <Input
+            placeholder="Search users..."
+            className="flex-1"
+            value={search}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setSearch(e.target.value)
+            }
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.key === "Enter") {
                 const q = String(search ?? "").trim();
                 if (q.length === 0) return;
                 router.push(`/search?query=${encodeURIComponent(q)}`);
-              }}
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              const q = String(search ?? "").trim();
+              if (q.length === 0) return;
+              router.push(`/search?query=${encodeURIComponent(q)}`);
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+            aria-label="Search"
+          >
+            <Search size={18} />
+            Search
+          </button>
+        </div>
+
+        {/* User Profile Card */}
+        <div className="w-full max-w-3xl bg-white rounded-lg shadow-lg p-8">
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-4xl font-bold text-gray-900">My Profile</h1>
+            <button
+              onClick={openEditor}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-              aria-label="Search"
+              aria-label="Edit profile"
             >
-              <Search size={18} />
-              Search
+              <Pencil size={18} />
+              Edit
             </button>
           </div>
 
-          {/* User Info Card */}
-          <div className="border border-gray-200 rounded-xl p-6 relative shadow-sm bg-gray-50">
-            <h2 className="text-xl font-semibold mb-4">User Details</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Basic Information */}
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  User ID
+                </label>
+                <p className="text-lg text-gray-900 bg-gray-50 p-3 rounded-lg font-mono">
+                  {userInfo?.user_id ?? "-"}
+                </p>
+              </div>
 
-            <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <span className="font-medium">User ID:</span>{" "}
-                {userInfo?.user_id ?? "-"}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Username
+                </label>
+                <p className="text-lg text-gray-900 bg-gray-50 p-3 rounded-lg">
+                  {userInfo?.username ?? "-"}
+                </p>
               </div>
+
               <div>
-                <span className="font-medium">Username:</span>{" "}
-                {userInfo?.username ?? "-"}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  First Name
+                </label>
+                <p className="text-lg text-gray-900 bg-gray-50 p-3 rounded-lg">
+                  {userInfo?.first_name ?? "-"}
+                </p>
               </div>
+
               <div>
-                <span className="font-medium">First Name:</span>{" "}
-                {userInfo?.first_name ?? "-"}
-              </div>
-              <div>
-                <span className="font-medium">Last Name:</span>{" "}
-                {userInfo?.last_name ?? "-"}
-              </div>
-              <div>
-                <span className="font-medium">City:</span>{" "}
-                {userInfo?.city ?? "-"}
-              </div>
-              <div>
-                <span className="font-medium">Country:</span>{" "}
-                {userInfo?.country ?? "-"}
-              </div>
-              <div>
-                <span className="font-medium">Zip Code:</span>{" "}
-                {userInfo?.zipcode ?? "-"}
-              </div>
-              <div>
-                <span className="font-medium">Gender:</span>{" "}
-                {userInfo?.gender ?? "-"}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Last Name
+                </label>
+                <p className="text-lg text-gray-900 bg-gray-50 p-3 rounded-lg">
+                  {userInfo?.last_name ?? "-"}
+                </p>
               </div>
             </div>
 
-            {/* Three-dot menu */}
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="absolute top-4 right-4 p-2 hover:bg-gray-200 rounded-lg transition"
-              aria-label="Open menu"
-            >
-              <div className="space-y-1">
-                <div className="w-5 h-0.5 bg-gray-600" />
-                <div className="w-5 h-0.5 bg-gray-600" />
-                <div className="w-5 h-0.5 bg-gray-600" />
+            {/* Location Information */}
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  City
+                </label>
+                <p className="text-lg text-gray-900 bg-gray-50 p-3 rounded-lg">
+                  {userInfo?.city || "Not specified"}
+                </p>
               </div>
-            </button>
 
-            {/* Dropdown menu */}
-            {showMenu && (
-              <div className="absolute top-14 right-4 bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden w-44 z-20">
-                <button
-                  className="flex items-center gap-2 px-4 py-3 w-full text-left hover:bg-blue-50 text-gray-700"
-                  onClick={openEditor}
-                >
-                  <Pencil size={16} /> Edit
-                </button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Country
+                </label>
+                <p className="text-lg text-gray-900 bg-gray-50 p-3 rounded-lg">
+                  {userInfo?.country || "Not specified"}
+                </p>
               </div>
-            )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Zip Code
+                </label>
+                <p className="text-lg text-gray-900 bg-gray-50 p-3 rounded-lg">
+                  {userInfo?.zipcode || "Not specified"}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Gender
+                </label>
+                <p className="text-lg text-gray-900 bg-gray-50 p-3 rounded-lg">
+                  {userInfo?.gender || "Not specified"}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
