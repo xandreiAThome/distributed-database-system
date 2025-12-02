@@ -21,6 +21,27 @@ const ROLE = (process.env.NODE_ROLE as 'CENTRAL' | 'FRAGMENT') ?? 'FRAGMENT';
 const EVEN_NODE = process.env.EVEN_NODE ?? 'node2';
 const ODD_NODE = process.env.ODD_NODE ?? 'node3';
 
+// Debug logging for environment variables
+console.log('[TxnService] Environment Variables at Startup:');
+console.log('[TxnService] NODE_NAME:', NODE_NAME);
+console.log('[TxnService] NODE_ROLE:', ROLE);
+console.log('[TxnService] CENTRAL_URL:', CENTRAL_URL);
+console.log('[TxnService] NODE2_URL:', process.env.NODE2_URL);
+console.log('[TxnService] NODE3_URL:', process.env.NODE3_URL);
+console.log('[TxnService] EVEN_NODE:', EVEN_NODE);
+console.log('[TxnService] ODD_NODE:', ODD_NODE);
+console.log(
+  '[TxnService] DATABASE_URL:',
+  process.env.DATABASE_URL ? '***SET***' : 'NOT SET',
+);
+console.log(
+  '[TxnService] Full env keys:',
+  Object.keys(process.env).filter(
+    (k) =>
+      k.includes('NODE') || k.includes('CENTRAL') || k.includes('DATABASE'),
+  ),
+);
+
 type Db = NodePgDatabase<typeof schema>;
 
 type ReplicationStatus = 'APPLIED' | 'PENDING' | 'FAILED';
