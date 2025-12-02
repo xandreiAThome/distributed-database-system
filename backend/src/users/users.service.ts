@@ -37,7 +37,6 @@ export class UsersService {
     return res[0];
   }
 
-  /*
   async getUsersByName(name: string, limit: number = 10) {
     const search = `%${name}%`.trim();
     const res = await this.db
@@ -130,5 +129,4 @@ export class UsersService {
       message: 'User updated successfully with distributed replication',
     };
   }
-    */
 }

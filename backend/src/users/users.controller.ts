@@ -22,7 +22,6 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export class UsersController {
   constructor(private readonly userService: UsersService) {}
 
-  /*
   @Get()
   @ApiOperation({
     summary: 'Get all users',
@@ -193,5 +192,4 @@ export class UsersController {
   ) {
     return this.userService.updateUser(id, updateUserDto);
   }
-    */
 }

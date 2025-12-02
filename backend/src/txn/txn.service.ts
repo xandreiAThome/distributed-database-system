@@ -386,7 +386,8 @@ export class TxnService {
       before: beforeRow ?? undefined,
       after: finalRow ?? undefined,
       steps: traceSteps,
-      replicationDto,
+      replication: replicationTrace,
+      finalRowOnNode: finalRows[0] ?? undefined,
     };
 
     return trace;
@@ -562,7 +563,8 @@ export class TxnService {
       userId,
       before: beforeRow ?? undefined,
       after: finalRow ?? undefined,
-      replicationDto,
+      replication: replicationTrace,
+      finalRowOnNode: finalRows[0] ?? undefined,
     };
 
     return trace;
