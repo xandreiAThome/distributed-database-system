@@ -1,5 +1,9 @@
-import { Trash } from 'lucide-react';
-import React from 'react';
+"use client";
+
+import { Trash } from "lucide-react";
+import React from "react";
+import { useDeleteUser } from "@/hooks/useMutations";
+import { debugLog } from "@/lib/config";
 
 interface UserCardProps {
   name: string;
@@ -10,16 +14,29 @@ interface UserCardProps {
   id: string;
 }
 
-const UserCards = ({ name, username, city, country, gender, id }: UserCardProps) => {
+const UserCards = ({
+  name,
+  username,
+  city,
+  country,
+  gender,
+  id,
+}: UserCardProps) => {
+  const deleteMutation = useDeleteUser();
 
-  const handleDelete = async () => {
-    try {
-      await fetch(`http://localhost:4000/users/${id}`, {
-        method: 'DELETE',
+  const handleDelete = () => {
+    if (confirm("Are you sure you want to delete this user?")) {
+      debugLog("Deleting user:", id);
+      deleteMutation.mutate(id, {
+        onSuccess: () => {
+          debugLog("User deleted successfully");
+          window.location.reload();
+        },
+        onError: (error: any) => {
+          console.error("Delete error:", error);
+          alert("Failed to delete user");
+        },
       });
-      window.location.reload();
-    } catch (error) {
-      console.error(error);
     }
   };
 
@@ -31,14 +48,19 @@ const UserCards = ({ name, username, city, country, gender, id }: UserCardProps)
       <div className="text-sm text-gray-600 space-y-1">
         <h2 className="text-lg font-semibold mb-1">{username}</h2>
       </div>
-      <button 
+      <button
         onClick={handleDelete}
-        className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+        disabled={deleteMutation.isPending}
+        className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
+          deleteMutation.isPending
+            ? "bg-red-400 cursor-not-allowed"
+            : "bg-red-600 text-white hover:bg-red-700"
+        }`}
       >
-        <Trash size={16} /> 
+        <Trash size={16} />
       </button>
     </div>
   );
-}
+};
 
 export default UserCards;
