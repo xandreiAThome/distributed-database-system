@@ -16,8 +16,7 @@ import { RepOperationType } from 'src/enums/operation-type';
 import type { User } from '../../db-schema/user';
 
 const NODE_NAME = process.env.NODE_NAME ?? 'node1';
-const CENTRAL_URL =
-  process.env.CENTRAL_URL ?? `http://node1:${process.env.PORT ?? 4000}`;
+const CENTRAL_URL = process.env.CENTRAL_URL ?? 'http://node1:3000';
 const ROLE = (process.env.NODE_ROLE as 'CENTRAL' | 'FRAGMENT') ?? 'FRAGMENT';
 const EVEN_NODE = process.env.EVEN_NODE ?? 'node2';
 const ODD_NODE = process.env.ODD_NODE ?? 'node3';
@@ -323,7 +322,8 @@ export class TxnService {
       const baseUrl =
         replicationDto.targetNode === 'node1'
           ? CENTRAL_URL
-          : `http://${replicationDto.targetNode}:4000`;
+          : (process.env[`${replicationDto.targetNode.toUpperCase()}_URL`] ??
+            `http://${replicationDto.targetNode}:3000`);
 
       let status: ReplicationStatus = 'PENDING';
       let appliedOnTarget = false;
@@ -499,7 +499,8 @@ export class TxnService {
       const baseUrl =
         replicationDto.targetNode === 'node1'
           ? CENTRAL_URL
-          : `http://${replicationDto.targetNode}:4000`;
+          : (process.env[`${replicationDto.targetNode.toUpperCase()}_URL`] ??
+            `http://${replicationDto.targetNode}:3000`);
 
       let status: ReplicationStatus = 'PENDING';
       let appliedOnTarget = false;

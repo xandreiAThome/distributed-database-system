@@ -53,6 +53,7 @@ export class UsersService {
     return res;
   }
 
+  // Use performInsertTxn which handles:
   async createUser(dto: CreateUserDto) {
     // Use performInsertTxn which handles:
     // 1. Auto-generating user_id based on node role (central vs fragments)

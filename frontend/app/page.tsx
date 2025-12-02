@@ -1,36 +1,33 @@
-'use client';
+"use client";
 
 import { Input } from "@/components/ui/input";
-import axios from "axios";
-import { Pencil, Trash } from "lucide-react";
+import { Pencil, Search, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-interface UserInfo {
-  user_id: string;
-  username: string;
-  first_name: string;
-  last_name: string;
-  city: string;
-  country: string;
-  zipcode: string;
-  gender: string;
-}
+import { useUser } from "@/hooks/useUsers";
+import { useUpdateUser } from "@/hooks/useMutations";
+import axios from "axios";
 
 export default function Home() {
   const router = useRouter();
+
+  // Get user ID from sessionStorage directly
+  const storedUserId =
+    typeof window !== "undefined" ? sessionStorage.getItem("userId") : null;
+
+  useEffect(() => {
+    if (!storedUserId) {
+      window.location.href = "/login";
+    }
+  }, [storedUserId]);
 
   // Search state (redirects to /search on Enter)
   const [search, setSearch] = useState("");
 
   const [showMenu, setShowMenu] = useState(false);
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Edit modal & form states
   const [isEditing, setIsEditing] = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
 
@@ -45,24 +42,16 @@ export default function Home() {
     gender: "",
   });
 
-  useEffect(() => {
-    async function getUserInfo() {
-      const userId = sessionStorage.getItem("userId");
-      if (!userId) {
-        window.location.href = "/login";
-        return;
-      }
-      try {
-        const response = await axios.get(`http://localhost:4000/users/${userId}`);
-        setUserInfo(response.data);
-      } catch (err: any) {
-        setError("Failed to fetch user info.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    getUserInfo();
-  }, []);
+  // Fetch user data with TanStack Query
+  const {
+    data: userInfo,
+    isLoading,
+    isError,
+    error,
+  } = useUser(storedUserId, !!storedUserId);
+
+  // Update mutation
+  const updateMutation = useUpdateUser(storedUserId);
 
   // Prefill form when opening editor
   function openEditor() {
@@ -90,7 +79,7 @@ export default function Home() {
     return null;
   }
 
-  // Submit update to provided API
+  // Submit update
   async function submitEdit() {
     const validationError = validateForm();
     if (validationError) {
@@ -98,15 +87,11 @@ export default function Home() {
       return;
     }
 
-    setEditLoading(true);
     setEditError(null);
     setEditSuccess(null);
 
-    try {
-      // NOTE: using the endpoint you gave for update
-      const updateUrl = "http://localhost:4000/users/1";
-      // Use PATCH to send only changed fields
-      const payload = {
+    updateMutation.mutate(
+      {
         username: form.username,
         first_name: form.first_name,
         last_name: form.last_name,
@@ -114,29 +99,30 @@ export default function Home() {
         country: form.country,
         zipcode: form.zipcode,
         gender: form.gender,
-      };
-
-      const response = await axios.patch(updateUrl, payload);
-      // If API returns the updated user, use it; otherwise merge optimistic update
-      const updated = response.data ?? { ...userInfo, ...payload };
-
-      setUserInfo(updated);
-      setEditSuccess("Profile updated.");
-      // close after a short moment for smooth UX
-      setTimeout(() => {
-        setIsEditing(false);
-        setEditSuccess(null);
-      }, 900);
-    } catch (err: any) {
-      setEditError(
-        err?.response?.data?.message ?? "Failed to update profile. Try again."
-      );
-    } finally {
-      setEditLoading(false);
-    }
+      },
+      {
+        onSuccess: () => {
+          setEditSuccess("Profile updated.");
+          setTimeout(() => {
+            setIsEditing(false);
+            setEditSuccess(null);
+          }, 900);
+        },
+        onError: (error: unknown) => {
+          if (axios.isAxiosError(error)) {
+            setEditError(
+              error.response?.data?.message ??
+                "Failed to update profile. Try again."
+            );
+          } else {
+            setEditError("Failed to update profile. Try again.");
+          }
+        },
+      }
+    );
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-gray-600">
         Loading...
@@ -144,10 +130,10 @@ export default function Home() {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-600">
-        {error}
+        {error?.message || "Failed to fetch user"}
       </div>
     );
   }
@@ -156,36 +142,89 @@ export default function Home() {
     <>
       <div className="min-h-screen flex items-center justify-center p-4 bg-gray-100">
         <div className="w-full max-w-2xl bg-white shadow-xl rounded-xl p-8 space-y-6">
-          <h1 className="text-3xl font-bold text-center">Dashboard</h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <button
+              onClick={() => {
+                sessionStorage.clear();
+                window.location.href = "/login";
+              }}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm transition-colors"
+              aria-label="Logout"
+            >
+              <LogOut size={16} />
+              Logout
+            </button>
+          </div>
 
-          {/* Search Bar (press Enter to redirect to /search?query=...) */}
-          <Input
-            placeholder="Search..."
-            className="mt-4"
-            value={search}
-            onChange={(e: any) => setSearch(e.target.value)}
-            onKeyDown={(e: any) => {
-              if (e.key === "Enter") {
+          {/* Search Bar with Navigation (press Enter to redirect to /search?query=...) */}
+          <div className="flex gap-2 mt-4">
+            <Input
+              placeholder="Search..."
+              className="flex-1"
+              value={search}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setSearch(e.target.value)
+              }
+              onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                if (e.key === "Enter") {
+                  const q = String(search ?? "").trim();
+                  if (q.length === 0) return;
+                  router.push(`/search?query=${encodeURIComponent(q)}`);
+                }
+              }}
+            />
+            <button
+              onClick={() => {
                 const q = String(search ?? "").trim();
                 if (q.length === 0) return;
                 router.push(`/search?query=${encodeURIComponent(q)}`);
-              }
-            }}
-          />
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              aria-label="Search"
+            >
+              <Search size={18} />
+              Search
+            </button>
+          </div>
 
           {/* User Info Card */}
           <div className="border border-gray-200 rounded-xl p-6 relative shadow-sm bg-gray-50">
             <h2 className="text-xl font-semibold mb-4">User Details</h2>
 
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><span className="font-medium">User ID:</span> {userInfo?.user_id ?? "-"}</div>
-              <div><span className="font-medium">Username:</span> {userInfo?.username ?? "-"}</div>
-              <div><span className="font-medium">First Name:</span> {userInfo?.first_name ?? "-"}</div>
-              <div><span className="font-medium">Last Name:</span> {userInfo?.last_name ?? "-"}</div>
-              <div><span className="font-medium">City:</span> {userInfo?.city ?? "-"}</div>
-              <div><span className="font-medium">Country:</span> {userInfo?.country ?? "-"}</div>
-              <div><span className="font-medium">Zip Code:</span> {userInfo?.zipcode ?? "-"}</div>
-              <div><span className="font-medium">Gender:</span> {userInfo?.gender ?? "-"}</div>
+              <div>
+                <span className="font-medium">User ID:</span>{" "}
+                {userInfo?.user_id ?? "-"}
+              </div>
+              <div>
+                <span className="font-medium">Username:</span>{" "}
+                {userInfo?.username ?? "-"}
+              </div>
+              <div>
+                <span className="font-medium">First Name:</span>{" "}
+                {userInfo?.first_name ?? "-"}
+              </div>
+              <div>
+                <span className="font-medium">Last Name:</span>{" "}
+                {userInfo?.last_name ?? "-"}
+              </div>
+              <div>
+                <span className="font-medium">City:</span>{" "}
+                {userInfo?.city ?? "-"}
+              </div>
+              <div>
+                <span className="font-medium">Country:</span>{" "}
+                {userInfo?.country ?? "-"}
+              </div>
+              <div>
+                <span className="font-medium">Zip Code:</span>{" "}
+                {userInfo?.zipcode ?? "-"}
+              </div>
+              <div>
+                <span className="font-medium">Gender:</span>{" "}
+                {userInfo?.gender ?? "-"}
+              </div>
             </div>
 
             {/* Three-dot menu */}
@@ -240,7 +279,9 @@ export default function Home() {
                 <div className="text-xs font-medium">Username</div>
                 <Input
                   value={form.username}
-                  onChange={(e: any) => setForm({ ...form, username: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, username: e.target.value })
+                  }
                 />
               </label>
 
@@ -248,7 +289,9 @@ export default function Home() {
                 <div className="text-xs font-medium">First Name</div>
                 <Input
                   value={form.first_name}
-                  onChange={(e: any) => setForm({ ...form, first_name: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, first_name: e.target.value })
+                  }
                 />
               </label>
 
@@ -256,23 +299,40 @@ export default function Home() {
                 <div className="text-xs font-medium">Last Name</div>
                 <Input
                   value={form.last_name}
-                  onChange={(e: any) => setForm({ ...form, last_name: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, last_name: e.target.value })
+                  }
                 />
               </label>
 
               <label className="space-y-1">
                 <div className="text-xs font-medium">City</div>
-                <Input value={form.city} onChange={(e: any) => setForm({ ...form, city: e.target.value })} />
+                <Input
+                  value={form.city}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, city: e.target.value })
+                  }
+                />
               </label>
 
               <label className="space-y-1">
                 <div className="text-xs font-medium">Country</div>
-                <Input value={form.country} onChange={(e: any) => setForm({ ...form, country: e.target.value })} />
+                <Input
+                  value={form.country}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, country: e.target.value })
+                  }
+                />
               </label>
 
               <label className="space-y-1">
                 <div className="text-xs font-medium">Zip Code</div>
-                <Input value={form.zipcode} onChange={(e: any) => setForm({ ...form, zipcode: e.target.value })} />
+                <Input
+                  value={form.zipcode}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, zipcode: e.target.value })
+                  }
+                />
               </label>
 
               <label className="space-y-1 md:col-span-2">
@@ -292,8 +352,12 @@ export default function Home() {
 
             {/* Error / Success */}
             <div className="mt-4">
-              {editError && <div className="text-sm text-red-600">{editError}</div>}
-              {editSuccess && <div className="text-sm text-green-600">{editSuccess}</div>}
+              {editError && (
+                <div className="text-sm text-red-600">{editError}</div>
+              )}
+              {editSuccess && (
+                <div className="text-sm text-green-600">{editSuccess}</div>
+              )}
             </div>
 
             {/* Actions */}
@@ -301,18 +365,20 @@ export default function Home() {
               <button
                 className="px-4 py-2 rounded bg-gray-100 hover:bg-gray-200"
                 onClick={() => setIsEditing(false)}
-                disabled={editLoading}
+                disabled={updateMutation.isPending}
               >
                 Cancel
               </button>
               <button
                 className={`px-4 py-2 rounded text-white ${
-                  editLoading ? "bg-blue-300" : "bg-blue-600 hover:bg-blue-700"
+                  updateMutation.isPending
+                    ? "bg-blue-300"
+                    : "bg-blue-600 hover:bg-blue-700"
                 }`}
                 onClick={submitEdit}
-                disabled={editLoading}
+                disabled={updateMutation.isPending}
               >
-                {editLoading ? "Saving..." : "Save changes"}
+                {updateMutation.isPending ? "Saving..." : "Save changes"}
               </button>
             </div>
           </div>
