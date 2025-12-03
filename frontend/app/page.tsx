@@ -1,12 +1,18 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { Pencil, Search, LogOut } from "lucide-react";
+import { Pencil, Search, LogOut, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/useUsers";
 import { useUpdateUser } from "@/hooks/useMutations";
 import axios from "axios";
+
+const NODES = {
+  central: process.env.NEXT_PUBLIC_CENTRAL_URL || "http://localhost:3010",
+  node2: process.env.NEXT_PUBLIC_NODE2_URL || "http://localhost:3011",
+  node3: process.env.NEXT_PUBLIC_NODE3_URL || "http://localhost:3012",
+};
 
 export default function Home() {
   const router = useRouter();
@@ -40,6 +46,10 @@ export default function Home() {
     gender: "",
   });
 
+  // Recovery state
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+
   // Fetch user data with TanStack Query
   const {
     data: userInfo,
@@ -66,6 +76,41 @@ export default function Home() {
     setEditError(null);
     setEditSuccess(null);
     setIsEditing(true);
+  }
+
+  // Recovery function
+  async function runRecoveryAll() {
+    setIsRecovering(true);
+    setRecoveryMessage(null);
+
+    try {
+      const nodeList = [
+        { key: "central", url: NODES.central },
+        { key: "node2", url: NODES.node2 },
+        { key: "node3", url: NODES.node3 },
+      ];
+
+      for (const { key, url } of nodeList) {
+        const res = await fetch(`${url}/recovery/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Recovery failed on ${key}`);
+        }
+      }
+
+      setRecoveryMessage("Recovery completed on all nodes successfully!");
+      setTimeout(() => setRecoveryMessage(null), 3000);
+    } catch (error) {
+      setRecoveryMessage(
+        error instanceof Error ? error.message : "Recovery failed"
+      );
+    } finally {
+      setIsRecovering(false);
+    }
   }
 
   // Simple client validation
@@ -148,7 +193,7 @@ export default function Home() {
                 window.location.href = "/create";
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-              aria-label="Demo Concurrency"
+              aria-label="Create User"
             >
               Create User
             </button>
@@ -160,7 +205,21 @@ export default function Home() {
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
               aria-label="Demo Concurrency"
             >
-              Concurrency
+              Demo
+            </button>
+
+            <button
+              onClick={runRecoveryAll}
+              disabled={isRecovering}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-white transition-colors ${
+                isRecovering
+                  ? "bg-green-400 cursor-not-allowed"
+                  : "bg-green-600 hover:bg-green-700"
+              }`}
+              aria-label="Run Recovery"
+            >
+              <RefreshCw size={18} className={isRecovering ? "animate-spin" : ""} />
+              {isRecovering ? "Recovering..." : "Recovery"}
             </button>
 
             <button
@@ -175,6 +234,18 @@ export default function Home() {
               Logout
             </button>
           </div>
+
+          {recoveryMessage && (
+            <div
+              className={`mt-2 px-4 py-2 rounded-lg text-sm ${
+                recoveryMessage.includes("success")
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+              }`}
+            >
+              {recoveryMessage}
+            </div>
+          )}
 
         </div>
 
